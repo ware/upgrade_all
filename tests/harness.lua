@@ -380,7 +380,7 @@ local function install_globals()
             for _, tag in ipairs({ "hef", "def", "emp", "tmb", "vmp", "dwf", "wef", "lzd", "skv", "cst", "nag", "chd" }) do
                 if tag ~= own and has_tag(key, tag) then crash("queued another culture's building " .. key) end
             end
-            if key == "wh2_dlc17_silent_sanctum_def_boost_1" then crash("queued " .. key) end
+            if string.sub(key, 1, #"wh2_dlc17_silent_sanctum_def_boost") == "wh2_dlc17_silent_sanctum_def_boost" then crash("queued " .. key) end
             if W.invalid[key] then return end -- the game refuses: nothing charged
             W.treasury = W.treasury - W.cost(key)
             W.queued[#W.queued + 1] = { slot = slot.id, key = key, region = slot.region.key }

@@ -75,9 +75,11 @@ test("Other High Elf factions (Avelorn) run too", function()
     eq(#W.queued, 1)
 end)
 
-for _, key in ipairs({ "wh2_main_def_order_1", "wh2_dlc09_tmb_defence_major_1" }) do
+-- tiranoc_palace_def is a vetted landmark in the game data: only the culture
+-- check (not the "is it in the data" check) keeps it away from High Elves.
+for _, key in ipairs({ "wh2_main_def_order_1", "wh2_dlc09_tmb_defence_major_1", "wh2_main_special_tiranoc_palace_def" }) do
     test("Crash guard: High Elves never queue " .. key .. ", even when configured by hand", function()
-        new_world({ mkregion("mn", "p", { main = MAXED_MINOR, buildings = { "wh2_main_hef_farm_1", false } }) })
+        new_world({ mkregion("mn", "p", { capital = true, main = MAXED_MAJOR, buildings = { "wh2_main_hef_order_1", false } }) })
         load({ landmarks = { mn = key } }); end_turn()
         for _, q in ipairs(W.queued) do if q.key == key then error("queued " .. q.key) end end
         assert_in(W.trace_file, "Refusing key from another culture")
@@ -415,6 +417,8 @@ test("A landmark isn't held for while the settlement is too small for it", funct
         template = "wh2_dlc10_special_gaean_vale_secondary", buildings = { false, false } }) })
     W.upgrades = { wh2_main_special_settlement_gaean_vale_3 = {} }
     load(); end_turn()
+    -- (the game refuses a level-5 landmark here; the mock doesn't check levels)
+    assert(not has(queued_in("vale"), "wh2_main_special_everqueen_court"), "tried the level-5 landmark: " .. joined("vale"))
     eq(#queued_in("vale"), 2, "slot held for a level-5 landmark: " .. joined("vale"))
 end)
 
@@ -457,11 +461,13 @@ test("Aislinn's own colony settlements get upgrades only: nothing new, nothing d
 end)
 
 test("Tor Anroc: if the game refuses the neutral palace, High Elves never fall back to the Dark Elf one", function()
-    new_world({ mkregion("anroc", "p", { main = MAXED_MINOR, template = "wh2_main_special_tor_anroc_secondary",
-        buildings = { "wh2_main_hef_farm_1", false } }) })
+    new_world({ mkregion("anroc", "p", { capital = true, main = MAXED_MAJOR, template = "wh2_main_special_tor_anroc_secondary",
+        buildings = { "wh2_main_hef_order_1", false, false, false, false, false, false, false } }) })
+    -- level 5 and enough free slots that the layout reaches its landmark line
     W.invalid["wh2_main_special_tiranoc_palace"] = true
     load(); end_turn(); end_turn(); end_turn()
     for _, q in ipairs(W.queued) do assert(q.key ~= "wh2_main_special_tiranoc_palace_def", "queued the Dark Elf palace") end
+    assert_not_in(W.trace_file, "Refusing key from another culture", "Dark Elf palace was even chosen")
 end)
 
 ---------------------------------------------------------------------------
@@ -671,6 +677,553 @@ test("run_at = turn_start: works two seconds into the turn", function()
     eq(#W.queued, 0, "ran at End Turn")
     start_turn()
     eq(#W.queued, 1)
+end)
+
+---------------------------------------------------------------------------
+-- Orders that never appear (Monument of the Moon), and why slots stay empty
+---------------------------------------------------------------------------
+test("Monument of the Moon: a Homestead that never appeared is ordered again after its build time + 2", function()
+    new_world({ mkregion("moon", "p", { main = MAXED_MINOR, buildings = { false } }) })
+    load(); end_turn()                          -- turn 1: ordered (1-turn build)
+    eq(joined("moon"), "wh2_main_hef_farm_1")
+    W.queued = {}
+    end_turn(); end_turn(); end_turn()          -- up to 3 turns old: still waiting
+    eq(#W.queued, 0, "re-ordered too early")
+    end_turn()                                  -- 4 turns old: overdue
+    eq(joined("moon"), "wh2_main_hef_farm_1", "not re-ordered")
+    assert_in(W.trace_file, "never appeared; trying the slot again")
+end)
+
+test("Slow-build climates get double the time before an order is given up on", function()
+    new_world({ mkregion("moon", "p", { main = MAXED_MINOR, buildings = { false }, bundles = { wh2_main_climate_uninhabitable = true } }) })
+    load(); end_turn()
+    W.queued = {}
+    for _ = 1, 4 do end_turn() end              -- 1 x 2 + 2 = 4 turns: still waiting
+    eq(#W.queued, 0, "re-ordered too early")
+    end_turn()
+    eq(#W.queued, 1, "not re-ordered")
+end)
+
+test("A long upgrade isn't given up on while it could still be building", function()
+    new_world({ mkregion("cap", "p", { capital = true, main = "wh2_main_hef_settlement_major_4", buildings = {} }) })
+    load(); end_turn()                          -- level 5: 7-turn build
+    eq(joined("cap"), "wh2_main_hef_settlement_major_5")
+    W.queued = {}
+    for _ = 1, 8 do end_turn() end              -- up to 9 turns: 7 + 2
+    eq(#W.queued, 0)
+end)
+
+test("A finished building clears its order at once, and the next step follows", function()
+    new_world({ mkregion("moon", "p", { main = MAXED_MINOR, buildings = { false } }) })
+    load(); end_turn()
+    H.region("moon").slots[2].b = "wh2_main_hef_farm_1"
+    W.queued = {}
+    end_turn()
+    assert_not_in(W.trace_file, "never appeared")
+    eq(joined("moon"), "wh2_main_hef_farm_2")
+end)
+
+test("Orders are remembered across save and load", function()
+    new_world({ mkregion("moon", "p", { main = MAXED_MINOR, buildings = { false } }) })
+    load(); end_turn()
+    H.reload()
+    W.queued = {}
+    end_turn()
+    eq(#W.queued, 0, "forgot its order and queued again")
+end)
+
+test("Empty slots are explained once per turn in the trace: short of gold", function()
+    new_world({ mkregion("moon", "p", { main = MAXED_MINOR, buildings = { false } }) }, 500)
+    load(); end_turn()
+    assert_in(W.trace_file, "moon: 1 empty slot(s) left: wh2_main_hef_farm_1 short of gold (1000 needed, 500 left)")
+    eq(H.count(W.trace_file, "empty slot(s) left"), 1)
+end)
+
+test("Empty slots are explained: refused by the game", function()
+    new_world({ mkregion("moon", "p", { main = MAXED_MINOR, buildings = { false } }) })
+    W.invalid["wh2_main_hef_farm_1"] = true; W.invalid["wh2_main_hef_industry_1"] = true
+    load(); end_turn()
+    assert_in(W.trace_file, "wh2_main_hef_farm_1 refused by the game")
+end)
+
+test("Orders still in progress are listed as waiting", function()
+    new_world({ mkregion("moon", "p", { main = MAXED_MINOR, buildings = { false } }) })
+    load(); end_turn(); end_turn()
+    assert_in(W.trace_file, "moon: waiting on new building(s): wh2_main_hef_farm_1 (ordered turn 1)")
+end)
+
+---------------------------------------------------------------------------
+-- Trace file
+---------------------------------------------------------------------------
+local function big_empire()
+    local regions = {}
+    for n = 1, 150 do
+        regions[n] = mkregion("r" .. n, "p" .. math.floor((n + 2) / 3), { capital = (n % 3 == 1), gdp = n,
+            main = (n % 3 == 1) and GROWING_MAJOR or GROWING_MINOR,
+            buildings = { "wh2_main_hef_barracks_1", false, "wh2_main_hef_industry_1" } })
+    end
+    new_world(regions, 50000)
+end
+
+test("Default trace keeps results and leaves out the per-region reading lines", function()
+    big_empire(); load(); end_turn()
+    for _, gone in ipairs({ "reading slots in", "reading province of region", "checking climate in", "reading commandment in", "queueing " }) do
+        assert_not_in(W.trace_file, gone)
+    end
+    for _, kept in ipairs({ "end turn clicked", "work starting", "pass 1", "demolishing ", "done", "popup " }) do
+        assert_in(W.trace_file, kept)
+    end
+end)
+
+test("detailed_trace = true brings the reading lines back; the default is a fraction of its size", function()
+    big_empire(); load(); end_turn()
+    local quiet = H.count(W.trace_file, "\n")
+    big_empire(); load({ detailed_trace = true }); end_turn()
+    local loud = H.count(W.trace_file, "\n")
+    for _, back in ipairs({ "reading slots in", "reading province of region", "reading commandment in", "queueing " }) do
+        assert_in(W.trace_file, back)
+    end
+    assert(quiet * 4 < loud, quiet .. " vs " .. loud)
+end)
+
+test("The trace stops at its per-turn limit and starts again next turn", function()
+    big_empire(); load({ detailed_trace = true, max_log_lines_per_turn = 50 }); end_turn()
+    local first = H.count(W.trace_file, "\n")
+    assert(first < 80, "limit ignored: " .. first)
+    end_turn()
+    assert(H.count(W.trace_file, "\n") > first, "didn't start again next turn")
+end)
+
+---------------------------------------------------------------------------
+-- Settings: the UA button and province panel
+---------------------------------------------------------------------------
+local function ui_find(...) return find_uicomponent(W.root, ...) end
+local function current_panel()
+    for name, c in pairs(W.ui.comps) do
+        if string.sub(name, 1, #"upgrade_all_settings_panel_") == "upgrade_all_settings_panel_" and not c.destroyed then return c end
+    end
+end
+local function open_panel()
+    H.click(ui_find("menu_bar", "buttongroup", "upgrade_all_settings_button"))
+    return current_panel()
+end
+local function row_named(panel, text)
+    for i = 1, 12 do
+        local label = find_uicomponent(panel, "ua_settings_name_" .. i)
+        if label and label.text and contains(label.text, text) then return find_uicomponent(panel, "ua_settings_check_" .. i), label end
+    end
+end
+local function box_named(panel, text) return (row_named(panel, text)) end
+
+local function settings_world(extra)
+    local regions = {
+        mkregion("lothern", "wh3_main_combi_province_eataine", { capital = true, gdp = 2000, main = GROWING_MAJOR, buildings = { false } }),
+        mkregion("tor_yvresse", "wh3_main_combi_province_yvresse", { capital = true, gdp = 900, main = GROWING_MAJOR, buildings = { false } }),
+        mkregion("elisia", "wh3_main_combi_province_chrace", { capital = true, gdp = 500, main = GROWING_MAJOR, buildings = { false } }),
+    }
+    for _, r in ipairs(extra or {}) do regions[#regions + 1] = r end
+    new_world(regions)
+    W.with_menu_bar = true
+end
+local function many_provinces()
+    local extra = {}
+    for n = 1, 27 do
+        extra[n] = mkregion("x" .. n, "wh3_main_combi_province_p" .. string.format("%02d", n),
+            { capital = true, main = GROWING_MAJOR, buildings = { false } })
+    end
+    return extra
+end
+
+test("A UA button appears just right of the search button, sized like it", function()
+    settings_world(); load()
+    local b = ui_find("menu_bar", "buttongroup", "upgrade_all_settings_button")
+    local search = ui_find("menu_bar", "buttongroup", "button_search_panel")
+    assert(b, "no button")
+    eq(b.layout, "ui/templates/round_small_button")
+    eq(b.w, 36); eq(b.h, 36)
+    assert(b.x >= search.x + search.w, "covers the search button")
+    eq(b.y, search.y)
+    eq(search.x, 1120, "search button moved")
+    assert(b.tip and contains(b.tip, "Upgrade All"), "no tooltip")
+end)
+
+test("The UA label is centred on the button", function()
+    settings_world(); load()
+    local b = ui_find("menu_bar", "buttongroup", "upgrade_all_settings_button")
+    local label = find_uicomponent(b, "upgrade_all_settings_label")
+    eq(label.dock, 5); eq(label.w, b.w)
+    eq(label.children[1].text, "UA"); eq(label.children[1].dock, 5)
+end)
+
+test("The button isn't duplicated when the HUD reopens or turns pass", function()
+    settings_world(); load()
+    H.fire("PanelOpenedCampaign", "hud_campaign"); H.settle()
+    end_turn(); end_turn()
+    local n = 0
+    for _, k in ipairs(ui_find("menu_bar", "buttongroup").children) do
+        if k.name == "upgrade_all_settings_button" then n = n + 1 end
+    end
+    eq(n, 1)
+end)
+
+test("If the HUD is rebuilt without the button, it comes back", function()
+    settings_world(); load()
+    local group = ui_find("menu_bar", "buttongroup")
+    for i, k in ipairs(group.children) do if k.name == "upgrade_all_settings_button" then table.remove(group.children, i) break end end
+    H.fire("PanelOpenedCampaign", "hud_campaign"); H.settle()
+    assert(ui_find("menu_bar", "buttongroup", "upgrade_all_settings_button"))
+end)
+
+test("The panel lists your provinces by on-screen name, sorted; Eataine is shown but locked", function()
+    settings_world()
+    W.loc = { provinces_onscreen_wh3_main_combi_province_chrace = "Chrace",
+              provinces_onscreen_wh3_main_combi_province_eataine = "Eataine",
+              provinces_onscreen_wh3_main_combi_province_yvresse = "Yvresse" }
+    load()
+    local p = open_panel()
+    eq(find_uicomponent(p, "ua_settings_name_1").text, "Chrace")
+    local eb, el = row_named(p, "Eataine")
+    eq(el.text, "Eataine (always skipped)")
+    eq(eb.state, "active"); eq(eb.disabled, true)
+    eq(box_named(p, "Yvresse").state, "selected")
+end)
+
+test("Unchecking a province skips it: nothing built, and the summary lists it", function()
+    settings_world(); load()
+    local yb = box_named(open_panel(), "yvresse")
+    H.click(yb)
+    eq(yb.state, "active")
+    end_turn()
+    eq(#queued_in("tor_yvresse"), 0)
+    assert(#queued_in("elisia") > 0, "other provinces stopped")
+    assert_in(H.popup(), "Skipped (unchecked in settings): yvresse")
+end)
+
+test("Skipped provinces get no demolitions or commandment reminders either", function()
+    new_world(grown_province()); W.with_menu_bar = true
+    load()
+    H.click(box_named(open_panel(), "yvresse"))
+    end_turn()
+    eq(#W.demolished, 0)
+    assert_not_in(H.popup(), "Tribute")
+end)
+
+test("Checking it again brings it back", function()
+    settings_world(); load()
+    local yb = box_named(open_panel(), "yvresse")
+    H.click(yb); H.click(yb)
+    eq(yb.state, "selected")
+    end_turn()
+    assert(#queued_in("tor_yvresse") > 0)
+end)
+
+test("Choices are saved with the campaign and restored on load", function()
+    settings_world(); load()
+    H.click(box_named(open_panel(), "yvresse"))
+    local saved = H.reload()
+    eq(saved["upgrade_all_v2_skipped_provinces"], "wh3_main_combi_province_yvresse")
+    end_turn()
+    eq(#queued_in("tor_yvresse"), 0, "forgotten after load")
+    eq(box_named(open_panel(), "yvresse").state, "active", "panel shows it managed")
+end)
+
+test("A checkbox click changes only that box: the panel isn't rebuilt", function()
+    settings_world(); load()
+    local p = open_panel()
+    H.click(box_named(p, "yvresse"))
+    assert(not p.destroyed, "panel rebuilt")
+    eq(current_panel(), p)
+end)
+
+test("A duplicate click event toggles once, not twice", function()
+    settings_world(); load()
+    local yb = box_named(open_panel(), "yvresse")
+    H.click(yb, 2)
+    eq(yb.state, "active")
+end)
+
+test("Clicking the locked Eataine row changes nothing and saves nothing", function()
+    settings_world(); load()
+    local eb = box_named(open_panel(), "eataine")
+    H.click(eb)
+    eq(eb.state, "active")
+    eq(H.save()["upgrade_all_v2_skipped_provinces"], "")
+end)
+
+test("Pages of 12: Next and Prev build a new panel under a fresh name", function()
+    settings_world(many_provinces()); load()
+    local p1 = open_panel()
+    eq(find_uicomponent(p1, "ua_settings_prev").disabled, true)
+    eq(find_uicomponent(p1, "ua_settings_page").children[1].text, "1 / 3")
+    H.click(find_uicomponent(p1, "ua_settings_next"))
+    local p2 = current_panel()
+    assert(p2 and p2 ~= p1 and p1.destroyed, "page 2 not a fresh panel")
+    eq(find_uicomponent(p2, "ua_settings_page").children[1].text, "2 / 3")
+    H.click(find_uicomponent(p2, "ua_settings_next"))
+    local p3 = current_panel()
+    eq(find_uicomponent(p3, "ua_settings_next").disabled, true)
+    assert(find_uicomponent(p3, "ua_settings_check_6") and not find_uicomponent(p3, "ua_settings_check_7"), "30 provinces: 6 on page 3")
+    H.click(find_uicomponent(p3, "ua_settings_prev"))
+    eq(find_uicomponent(current_panel(), "ua_settings_page").children[1].text, "2 / 3")
+end)
+
+test("Unchecking on page 2 skips the right province", function()
+    settings_world(many_provinces()); load()
+    H.click(find_uicomponent(open_panel(), "ua_settings_next"))
+    H.click(box_named(current_panel(), "p15"))
+    end_turn()
+    eq(#queued_in("x15"), 0)
+    assert(#queued_in("x14") > 0 and #queued_in("x16") > 0, "neighbours affected")
+end)
+
+test("Close and the UA button both close the panel", function()
+    settings_world(); load()
+    local p = open_panel()
+    H.click(find_uicomponent(p, "ua_settings_close"))
+    assert(p.destroyed)
+    local p2 = open_panel()
+    H.click(ui_find("menu_bar", "buttongroup", "upgrade_all_settings_button"))
+    assert(p2.destroyed)
+end)
+
+test("Game buttons that happen to share a name are ignored", function()
+    settings_world(); load()
+    local p = open_panel()
+    local stranger = H.mkcomp("ua_settings_close", H.mkcomp("some_game_panel"))
+    H.click(stranger)
+    assert(not p.destroyed)
+end)
+
+test("Province names and the hint are plain text, printed once, inset into the bar", function()
+    settings_world(); load()
+    local p = open_panel()
+    local label = find_uicomponent(p, "ua_settings_name_2")
+    eq(label.text, "eataine (always skipped)"); eq(label.halign, "left")
+    eq(label.children[1].text, "", "printed a second time in the bar")
+    assert((label.xoff or 0) >= 14, "starts before the bar")
+    local hint = find_uicomponent(p, "ua_settings_hint")
+    eq(hint.text, "Checked build automatically. Uncheck to skip")
+    eq(hint.children[1].text, "")
+end)
+
+test("A non-text part inside a name label (the bar) is hidden", function()
+    settings_world(); load()
+    W.ui.extra_bar_child = true
+    local label = find_uicomponent(open_panel(), "ua_settings_name_1")
+    eq(find_uicomponent(label, "bar_image").visible, false)
+    assert(label.children[1].visible ~= false, "text child hidden")
+end)
+
+test("Blue-bar text (title, Close, Prev, Next, page) is printed once and centred", function()
+    settings_world(many_provinces()); load()
+    local p = open_panel()
+    for _, name in ipairs({ "ua_settings_close", "ua_settings_title", "ua_settings_prev", "ua_settings_next", "ua_settings_page" }) do
+        local c = find_uicomponent(p, name)
+        local txt = c.children[1]
+        eq(c.text, "", name .. " printed twice")
+        assert(txt.text and txt.text ~= "", name .. " has no text")
+        eq(txt.w, c.w, name); eq(txt.h, c.h, name); eq(txt.dock, 5, name); eq(txt.halign, "centre", name)
+    end
+end)
+
+test("The trace describes a name label once per session", function()
+    settings_world(); load()
+    open_panel()
+    H.click(ui_find("menu_bar", "buttongroup", "upgrade_all_settings_button"))
+    open_panel()
+    eq(H.count(W.trace_file, "what a name label is made of"), 1)
+end)
+
+test("An error while building the panel stays inside the panel", function()
+    settings_world(); load()
+    W.region_list_error = true
+    open_panel()
+    assert_in(W.trace_file, "settings click")
+    W.region_list_error = false
+    end_turn()
+    assert(#queued_in("tor_yvresse") > 0)
+end)
+
+test("A broken settings UI never affects building", function()
+    settings_world(); W.ui.fail_settings = true
+    load(); end_turn()
+    assert(#queued_in("tor_yvresse") > 0)
+end)
+
+test("settings_button = false: no button and no click listener", function()
+    settings_world(); load({ settings_button = false })
+    eq(ui_find("menu_bar", "buttongroup", "upgrade_all_settings_button"), nil)
+    for _, l in ipairs(W.listeners) do assert(l.name ~= "upgrade_all_settings_click") end
+end)
+
+test("No settings button for other cultures", function()
+    settings_world(); W.culture = "wh_main_emp_empire"
+    load()
+    eq(ui_find("menu_bar", "buttongroup", "upgrade_all_settings_button"), nil)
+end)
+
+---------------------------------------------------------------------------
+-- Dark Elves
+---------------------------------------------------------------------------
+local DEF_MAJOR_MAX, DEF_MINOR_MAX = H.DEF_MAJOR_MAX, H.DEF_MINOR_MAX
+local function def_world(regions, home)
+    new_world(regions)
+    W.culture = "wh2_main_def_dark_elves"; W.player = "wh2_main_def_naggarond"; W.home = home or "nowhere"
+end
+
+test("Dark Elf capital layout in order (Manors, Torture Posts, Slave Pens, Slave Gate, Artisan's House, Tunnels, Altar, Sorceress)", function()
+    def_world({
+        mkregion("cap", "p", { capital = true, gdp = 900, main = "wh2_main_def_settlement_major_4",
+            buildings = { false, false, false, false, false, false, false, false } }),
+        mkregion("mn", "p", { main = "wh2_main_def_settlement_minor_1", buildings = {} }),   -- still growing
+    })
+    load(); end_turn()
+    eq(joined("cap"), "wh2_main_def_settlement_major_5,wh2_main_def_farm_1,wh2_main_def_order_1,wh2_main_def_slaves_1,"
+        .. "wh2_main_def_defence_major_1,wh2_main_def_industry_1,wh2_main_foreign_slot_discovery_def_1,"
+        .. "wh2_main_def_worship_1,wh2_main_def_sorcery_1")
+end)
+
+test("Dark Elf minor layout: Manors, Artisan's House, resource, Watchtowers, Tunnels", function()
+    def_world({ mkregion("mn", "p", { main = DEF_MINOR_MAX, resource = "res_rom_marble", resource_slot = 3,
+        buildings = { false, false, false, false, false } }) })
+    load(); end_turn()
+    eq(joined("mn"), "wh2_main_def_farm_1,wh2_main_def_industry_1,wh2_main_def_resource_marble_1,"
+        .. "wh2_main_def_defence_minor_1,wh2_main_foreign_slot_discovery_def_1")
+end)
+
+test("Dark Elf slow-build minors swap Artisan's House and City Tunnels", function()
+    def_world({ mkregion("mn", "p", { main = DEF_MINOR_MAX, bundles = { wh2_main_climate_uninhabitable = true }, buildings = { false, false } }) })
+    load(); end_turn()
+    eq(joined("mn"), "wh2_main_def_farm_1,wh2_main_foreign_slot_discovery_def_1")
+end)
+
+test("Dark Elf resources map to Dark Elf buildings (oil -> pasture, lead -> salt)", function()
+    def_world({
+        mkregion("a", "p1", { main = DEF_MINOR_MAX, resource = "res_rom_oil", resource_slot = 3, buildings = { "wh2_main_def_farm_1", "wh2_main_def_industry_1", false } }),
+        mkregion("b", "p2", { main = DEF_MINOR_MAX, resource = "res_rom_lead", resource_slot = 3, buildings = { "wh2_main_def_farm_1", "wh2_main_def_industry_1", false } }),
+    })
+    load(); end_turn()
+    assert(has(queued_in("a"), "wh2_main_def_resource_pasture_1"), joined("a"))
+    assert(has(queued_in("b"), "wh2_main_def_resource_salt_1"), joined("b"))
+end)
+
+test("The lord's starting province is never touched", function()
+    def_world({
+        mkregion("naggarond", "wh3_main_combi_province_naggaroth", { capital = true, gdp = 5000, main = "wh2_main_def_settlement_major_3", buildings = { false, false } }),
+        mkregion("other", "wh3_main_combi_province_the_black_flood", { capital = true, gdp = 100, main = "wh2_main_def_settlement_major_3", buildings = { false } }),
+    }, "naggarond")
+    load(); end_turn()
+    eq(#queued_in("naggarond"), 0)
+    assert(#queued_in("other") > 0)
+    assert_in(W.trace_file, "starting province (never touched): wh3_main_combi_province_naggaroth")
+end)
+
+test("The starting province is remembered in the save, even after the capital moves", function()
+    def_world({
+        mkregion("naggarond", "wh3_main_combi_province_naggaroth", { capital = true, main = "wh2_main_def_settlement_major_3", buildings = { false } }),
+        mkregion("other", "wh3_main_combi_province_the_black_flood", { capital = true, main = "wh2_main_def_settlement_major_3", buildings = { false } }),
+    }, "naggarond")
+    load()
+    W.home = "other"
+    local saved = H.reload()
+    eq(saved["upgrade_all_v2_starting_province"], "wh3_main_combi_province_naggaroth")
+    end_turn()
+    eq(#queued_in("naggarond"), 0, "original starting province touched")
+    assert(#queued_in("other") > 0, "new capital province wrongly protected")
+end)
+
+test("No home region at all: nothing is protected, and the trace says so", function()
+    def_world({ mkregion("x", "p", { capital = true, main = "wh2_main_def_settlement_major_3", buildings = { false } }) })
+    load(); end_turn()
+    assert(#queued_in("x") > 0)
+    assert_in(W.trace_file, "starting province (never touched): none found")
+end)
+
+-- silent_sanctum_def_boost_0: "def" here means defence; it belongs to another
+-- culture and only the wrong-culture list stops it (level 2, so it fits a minor).
+for _, key in ipairs({ "wh2_main_hef_court_1", "wh2_dlc09_tmb_defence_major_1", "wh2_dlc17_silent_sanctum_def_boost_0" }) do
+    test("Crash guard: Dark Elves never queue " .. key, function()
+        def_world({ mkregion("mn", "p", { main = DEF_MINOR_MAX, buildings = { "wh2_main_def_farm_1", false } }) })
+        load({ landmarks = { mn = key } }); end_turn()
+        for _, q in ipairs(W.queued) do assert(q.key ~= key, "queued " .. key) end
+    end)
+end
+
+test("Shrine of Khaine: Dark Elves build the Dark Elf version", function()
+    def_world({ mkregion("shrine", "p", { main = DEF_MINOR_MAX, template = "wh2_main_special_shrine_of_khaine_secondary",
+        buildings = { "wh2_main_def_farm_1", false } }) })
+    load(); end_turn()
+    assert(has(queued_in("shrine"), "wh2_main_special_shrine_of_khaine_def_base"), joined("shrine"))
+end)
+
+test("Tor Anroc: Dark Elves pick the Dark Elf palace (level 5 capital)", function()
+    def_world({ mkregion("anroc", "p", { capital = true, main = DEF_MAJOR_MAX, template = "wh2_main_special_tor_anroc_secondary",
+        buildings = { "wh2_main_def_order_1", false } }) })
+    load(); end_turn()
+    assert(has(queued_in("anroc"), "wh2_main_special_tiranoc_palace_def"), joined("anroc"))
+end)
+
+test("Enforce Tribute Payments reminder in fully grown Dark Elf provinces", function()
+    def_world({
+        mkregion("cap", "wh3_main_combi_province_the_road_of_skulls", { capital = true, gdp = 900, main = DEF_MAJOR_MAX, edict = "something_else",
+            buildings = { "wh2_main_def_order_1" } }),
+        mkregion("mn", "wh3_main_combi_province_the_road_of_skulls", { main = DEF_MINOR_MAX, buildings = { "wh2_main_def_industry_1" } }),
+    })
+    W.loc = { provinces_onscreen_wh3_main_combi_province_the_road_of_skulls = "The Road of Skulls" }
+    load(); end_turn()
+    assert_in(H.popup(), "Set Enforce Tribute Payments in: The Road of Skulls")
+    assert_not_in(H.popup(), "Phoenix King")
+end)
+
+test("No reminder where Enforce Tribute Payments is already set", function()
+    def_world({ mkregion("cap", "p", { capital = true, main = DEF_MAJOR_MAX, edict = H.ENFORCE, buildings = { "wh2_main_def_order_1" } }) })
+    load(); end_turn()
+    assert_not_in(H.popup(), "Enforce Tribute")
+end)
+
+test("Dark Elves: no Banish warning, and corruption is never read", function()
+    def_world({ mkregion("cap", "p", { capital = true, main = DEF_MAJOR_MAX, edict = H.BANISH, buildings = { "wh2_main_def_order_1" } }) })
+    load(); end_turn()
+    assert_not_in(H.popup(), "Banish")
+    eq(W.corruption_reads or 0, 0)
+end)
+
+test("Dark Elves: once a province is fully grown, Manors make way for the next item", function()
+    def_world({ mkregion("cap", "p", { capital = true, main = DEF_MAJOR_MAX, buildings = { "wh2_main_def_farm_3", "wh2_main_def_order_1" } }) })
+    load(); end_turn()
+    assert(has(W.demolished, "wh2_main_def_farm_3"))
+end)
+
+test("Dark Elves: Cult of Pleasure and House of Assassins buildings are never demolished", function()
+    def_world({ mkregion("mn", "p", { main = DEF_MINOR_MAX,
+        buildings = { "wh2_main_def_pleasure_cult_1", "wh2_main_def_murder_1", false, false } }) })
+    load(); end_turn()
+    eq(#W.demolished, 0, table.concat(W.demolished, ","))
+end)
+
+test("Dark Elves: an ordinary building outside the layout is demolished to make room", function()
+    def_world({ mkregion("mn", "p", { main = DEF_MINOR_MAX, buildings = { "wh2_main_def_barracks_1" } }) })
+    load(); end_turn()
+    eq(table.concat(W.demolished, ","), "wh2_main_def_barracks_1")
+    eq(joined("mn"), "wh2_main_def_farm_1")
+end)
+
+test("Dark Elves: the settings panel locks the starting province and skipping works", function()
+    def_world({
+        mkregion("naggarond", "wh3_main_combi_province_naggaroth", { capital = true, main = "wh2_main_def_settlement_major_3", buildings = { false } }),
+        mkregion("other", "wh3_main_combi_province_the_black_flood", { capital = true, main = "wh2_main_def_settlement_major_3", buildings = { false } }),
+    }, "naggarond")
+    W.with_menu_bar = true
+    W.loc = { provinces_onscreen_wh3_main_combi_province_naggaroth = "Naggaroth",
+              provinces_onscreen_wh3_main_combi_province_the_black_flood = "The Black Flood" }
+    load()
+    local p = open_panel()
+    local _, label = row_named(p, "Naggaroth")
+    assert(label and contains(label.text, "always skipped"), "starting province not locked")
+    H.click(box_named(p, "The Black Flood"))
+    end_turn()
+    eq(#W.queued, 0)
+    assert_in(H.popup(), "Skipped (unchecked in settings): The Black Flood")
 end)
 
 H.finish_later = true
