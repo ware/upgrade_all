@@ -7737,6 +7737,15 @@ local function other_culture_key(key)
     return false
 end
 
+-- Every race's tag (the same list as tools/gen_data.py). A key with none of
+-- these is culture-neutral: an "_other" landmark variant, a special port...
+local CULTURE_TAGS = { "hef", "def", "dwf", "nor", "emp", "grn", "vmp", "tmb", "skv", "lzd", "wef", "brt", "chs",
+                       "kho", "nur", "sla", "tze", "dae", "ogr", "ksl", "cth", "chd", "cst", "woc", "nag", "bst", "kul", "den" }
+local function any_culture_tag(key)
+    for _, t in ipairs(CULTURE_TAGS) do if has_tag(key, t) then return true end end
+    return false
+end
+
 -- NEVER queue a building from another culture: the game crashes instead of
 -- rejecting it. Only the player's culture's keys and vetted landmarks reach the queue.
 
@@ -8367,10 +8376,15 @@ local function run_turn(faction)
     -- Queue one building; returns true if the game accepted (charged for) it.
     local function try(entry, key, province, kind)
         if stats.stop then return false end
-        -- Crash guard. Exception: the next level of the main settlement building
-        -- already in the slot (special settlements like Gaean Vale have no
-        -- "hef" in their keys).
-        local own_upgrade = entry.kind == "primary" and entry.current and chain_of(key) == chain_of(entry.current)
+        -- Crash guard. Exception: the next level of a building already in the
+        -- slot, when it's the main settlement (special settlements like Gaean
+        -- Vale have no "hef" in their keys) or a culture-neutral building (The
+        -- Great Desert's "_other" landmark, Copher's special port): the game
+        -- gave this faction its level 1, so its chain is safe here. A building
+        -- tagged for another culture is never upgraded, whatever sits in the slot.
+        local same_chain = entry.current and chain_of(key) == chain_of(entry.current)
+        local own_upgrade = same_chain and (entry.kind == "primary" or not any_culture_tag(key))
+            and not (UA_DATA.wrong_culture and UA_DATA.wrong_culture[key])
         if not own_upgrade and not is_safe_key(key) then log("Refusing key from another culture: " .. key); stats.why = "not a " .. RULES.adj .. " building"; return false end
         if stats.orders >= CONFIG.max_queued_per_turn then stats.stop = "per-turn cap reached"; stats.why = "per-turn cap reached"; return false end
         local before = cm:get_faction(fkey):treasury()

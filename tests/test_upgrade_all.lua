@@ -411,6 +411,36 @@ test("Great Desert of Araby: when the data's next level is refused too, the prov
     assert_in(W.trace_file, "mn: main building wh2_main_def_settlement_minor_1 -> wh2_main_def_settlement_minor_2: refused by the game")
 end)
 
+-- What the trace actually showed for the Great Desert: a single-settlement
+-- province whose only settlement is a level-3 minor (the top level), holding
+-- the culture-neutral "_other" version of The Great Desert landmark. The mod
+-- refused to upgrade the landmark every turn ("Refusing key from another
+-- culture"), because "_other" has no culture tag and isn't in landmark_ok.
+test("Great Desert of Araby: the owned '_other' landmark is upgraded, and the lone maxed minor makes the province grown", function()
+    new_world({ mkregion("wh3_main_combi_region_great_desert_of_araby", "wh3_main_combi_province_great_desert_of_araby",
+        { capital = true, main = H.DEF_MINOR_MAX, buildings = { "wh3_main_special_the_great_desert_other_1" } }) })
+    W.culture = "wh2_main_def_dark_elves"; W.player = "wh2_main_def_naggarond"
+    load(); end_turn()
+    eq(joined("wh3_main_combi_region_great_desert_of_araby"), "wh3_main_special_the_great_desert_other_2")
+    assert_not_in(W.trace_file, "Refusing key")
+    eq(#W.demolished, 0)
+    assert_in(H.summary(), "Set Enforce Tribute Payments in: great desert of araby")
+end)
+
+test("Copher: the special port already owned is upgraded along its own chain", function()
+    new_world({ mkregion("copher", "coast_of_araby", { main = H.DEF_MINOR_MAX, port = "wh2_dlc14_special_copher_port_1", buildings = {} }) })
+    W.culture = "wh2_main_def_dark_elves"; W.player = "wh2_main_def_naggarond"
+    load(); end_turn()
+    eq(joined("copher"), "wh2_dlc14_special_copher_port_2")
+end)
+
+test("A leftover building tagged for another culture is never upgraded, even along its own chain", function()
+    new_world({ mkregion("mn", "p", { main = MAXED_MINOR, buildings = { "wh2_dlc09_tmb_special_mortuary_cult_1", false } }) })
+    load(); end_turn()
+    assert(not has(queued_in("mn"), "wh2_dlc09_tmb_special_mortuary_cult_2"), joined("mn"))
+    assert_in(W.trace_file, "Refusing key from another culture: wh2_dlc09_tmb_special_mortuary_cult_2")
+end)
+
 test("A main building at its top level in the data is still maxed without asking twice", function()
     new_world(grown_province())
     load(); end_turn()
