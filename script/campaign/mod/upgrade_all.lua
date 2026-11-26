@@ -7568,7 +7568,9 @@ local CONFIG = {
     -- list extra provinces here (text matched against the province key) if needed.
     slow_provinces      = {},
 
-    -- Landmark for each region: region key -> landmark building key.
+    -- Landmark for each region: region key -> landmark building key. It must be
+    -- one of your culture's buildings or a landmark from the game data; anything
+    -- else is refused by the crash guard.
     landmarks           = {},
 
     -- Demolish buildings that don't belong in a settlement's slots (not in its
@@ -7922,14 +7924,15 @@ local function is_skipped(region)
 end
 
 -- Crash guard: only the player's own culture's buildings (tag as a whole word)
--- or landmarks from the data may be queued; never another culture's.
+-- or landmarks from the data may be queued; never another culture's. A landmark
+-- configured by hand gets no special pass: it must be one of these too (a
+-- hand-typed Tomb Kings "defence" building would otherwise crash the game).
 local function is_safe_key(key)
     if type(key) ~= "string" then return false end
     if UA_DATA.wrong_culture and UA_DATA.wrong_culture[key] then return false end
     if other_culture_key(key) then return false end
     if has_tag(key, RULES.tag) then return true end
     if UA_DATA.landmark_ok and UA_DATA.landmark_ok[key] then return true end
-    for _, lm in pairs(CONFIG.landmarks) do if lm == key then return true end end
     return false
 end
 
