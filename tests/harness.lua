@@ -2,7 +2,7 @@
 --
 -- It imitates exactly the game calls the mod makes, and turns every behaviour
 -- that crashed or misbehaved in the real game into a test failure:
---   * string.find / gsub / gmatch called by the mod (fatal in-game)
+--   * string.find / match / gsub / gmatch called by the mod (fatal in-game)
 --   * another culture's building queued (crashes the game)
 --   * slots read or buildings queued inside FactionTurnStart
 --   * a timer started from inside another timer (never fires in-game)
@@ -447,8 +447,18 @@ end
 -- Files: the trace and summary files land in W instead of on disk
 ---------------------------------------------------------------------------
 local real_io_open = io.open
+-- The mod writes to the working folder and (on a Mac) to $HOME; both are
+-- caught here by filename so a test run never touches real game logs.
+local function ends_with(s, tail) return type(s) == "string" and string.sub(s, -#tail) == tail end
+local discard = { write = function() end, close = function() end, lines = function() return function() return nil end end }
 io.open = function(path, mode)
-    if path ~= "upgrade_all_trace.txt" and path ~= "upgrade_all_summary.txt" then return real_io_open(path, mode) end
+    local is_log = ends_with(path, "upgrade_all_trace.txt") or ends_with(path, "upgrade_all_summary.txt")
+    if not is_log then return real_io_open(path, mode) end
+    if path ~= "upgrade_all_trace.txt" and path ~= "upgrade_all_summary.txt" then
+        -- the $HOME copy: swallowed, so the recorded trace isn't doubled
+        if mode == "r" then return nil end
+        return discard
+    end
     local buf = {}
     local handle = {}
     function handle:write(...) for _, s in ipairs({ ... }) do buf[#buf + 1] = s end end
@@ -473,13 +483,14 @@ end
 ---------------------------------------------------------------------------
 -- Running the mod: the string.find trap is on whenever mod code runs
 ---------------------------------------------------------------------------
-local real_find, real_gsub, real_gmatch = string.find, string.gsub, string.gmatch
+local real_find, real_match, real_gsub, real_gmatch = string.find, string.match, string.gsub, string.gmatch
 local function trapped(fn, ...)
     string.find = function(...) W.find_calls = W.find_calls + 1; return real_find(...) end
+    string.match = function(...) W.find_calls = W.find_calls + 1; return real_match(...) end
     string.gsub = function(...) W.find_calls = W.find_calls + 1; return real_gsub(...) end
     string.gmatch = function(...) W.find_calls = W.find_calls + 1; return real_gmatch(...) end
     local ok, err = pcall(fn, ...)
-    string.find, string.gsub, string.gmatch = real_find, real_gsub, real_gmatch
+    string.find, string.match, string.gsub, string.gmatch = real_find, real_match, real_gsub, real_gmatch
     if not ok then error(err, 0) end
 end
 
@@ -590,7 +601,7 @@ function test(name, fn)
     local ok, err = pcall(function()
         fn()
         if W then
-            if W.find_calls > 0 then error("the mod called string.find/gsub/gmatch " .. W.find_calls .. " times") end
+            if W.find_calls > 0 then error("the mod called string.find/match/gsub/gmatch " .. W.find_calls .. " times") end
             if W.dropped_timers > 0 then error("the mod started a timer inside a timer " .. W.dropped_timers .. " times") end
             if #W.crashes > 0 and not W.crashes_expected then error("game crash conditions: " .. table.concat(W.crashes, "; ")) end
         end

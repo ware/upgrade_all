@@ -1,5 +1,6 @@
 --[[
-    Upgrade All — High Elves empire builder for Total War: Warhammer III
+    Upgrade All — empire builder for Total War: Warhammer III
+    (High Elves and Dark Elves)
 
     When you click End Turn, spends the gold you didn't use (down to a floor) on:
       1. Main settlement upgrades,
@@ -8,10 +9,19 @@
     Provinces are worked in this order: worst public order first (while it's
     negative), then highest income to lowest, then provinces with no income.
 
-    Eataine is never touched. Colonies get upgrades only. Buildings with more
-    than one upgrade path are left for you. A summary pops up when it's done.
+    One province is never touched: Eataine for High Elves, the lord's starting
+    province for Dark Elves. Aislinn's colonies get upgrades only. Buildings
+    with more than one upgrade path are left for you. A summary pops up at the
+    start of your next turn.
 
     Single-player only. Edit CONFIG below, then rebuild the .pack in RPFM.
+
+    Copyright (C) 2026 Ryan Ware
+
+    This program is free software; you can redistribute it and/or modify it
+    under the terms of the GNU General Public License, version 2 only, as
+    published by the Free Software Foundation. It is distributed WITHOUT ANY
+    WARRANTY; see the LICENSE file in the source repository for details.
 ]]
 
 local CONFIG = {
@@ -86,7 +96,8 @@ if UPGRADE_ALL_CONFIG_OVERRIDE then -- test hook; never set in the game
 end
 
 -- Substring test in plain Lua (string.sub only). string.find did not behave
--- as expected inside the game, so nothing here relies on it.
+-- as expected inside the game, so nothing here uses the pattern functions
+-- (find, match, gsub, gmatch).
 local function contains(hay, needle)
     if type(hay) ~= "string" or type(needle) ~= "string" then return false end
     local n, h = #needle, #hay
@@ -95,6 +106,21 @@ local function contains(hay, needle)
         if string.sub(hay, i, i + n - 1) == needle then return true end
     end
     return false
+end
+
+-- Everything after the first occurrence of `marker` (nil if absent or nothing
+-- follows it). Plain Lua, no patterns.
+local function after(text, marker)
+    if type(text) ~= "string" or type(marker) ~= "string" then return nil end
+    local n = #marker
+    for i = 1, #text - n + 1 do
+        if string.sub(text, i, i + n - 1) == marker then
+            local rest = string.sub(text, i + n)
+            if rest ~= "" then return rest end
+            return nil
+        end
+    end
+    return nil
 end
 
 -- Splits on a single-character separator (plain Lua, no patterns).
@@ -199,7 +225,7 @@ local function other_culture_key(key)
 end
 
 -- NEVER queue a building from another culture: the game crashes instead of
--- rejecting it. Only High Elf and culture-neutral keys reach the queue.
+-- rejecting it. Only the player's culture's keys and vetted landmarks reach the queue.
 
 local MOD = "[UpgradeAll]"
 local SAVE_KEY = "upgrade_all_v2"
@@ -376,17 +402,50 @@ local function score(key)
     return s and s[1] or 0, s and s[2] or 0, s and s[3] or 0
 end
 
-local function single_upgrade(key)
-    local ups = cm:get_building_level_upgrades(key)
-    if type(ups) ~= "table" then return nil end
-    local found
-    for _, k in pairs(ups) do if found then return nil end found = k end
-    return found
+-- The next level of each building according to the game data: "chain_2" ->
+-- "chain_3". Built once. Levels with several keys (branching chains such as
+-- the dragonship's _3a/_3b) are left out: those are the multi-path buildings
+-- the mod never chooses for you.
+local NEXT_LEVEL = {}
+do
+    local by_chain = {}  -- chain -> level -> key (false = more than one key)
+    for key, t in pairs(UA_DATA.tier) do
+        local c = UA_DATA.chain[key]
+        if c then
+            by_chain[c] = by_chain[c] or {}
+            by_chain[c][t[1]] = (by_chain[c][t[1]] == nil) and key or false
+        end
+    end
+    for key, t in pairs(UA_DATA.tier) do
+        local c = UA_DATA.chain[key]
+        local nxt = c and by_chain[c][t[1] + 1]
+        if nxt and by_chain[c][t[1]] ~= false then NEXT_LEVEL[key] = nxt end
+    end
 end
 
--- True if a building has no further upgrade (its chain's highest level).
+-- The one upgrade a building can take, or nil if it has none or several.
+-- The game's own list is used first. If it lists nothing for a building that
+-- the data says isn't at its top level, the data's next level is tried
+-- instead: if the game really can't build it, it refuses at no cost.
+local function single_upgrade(key)
+    local ups = cm:get_building_level_upgrades(key)
+    local found, count = nil, 0
+    if type(ups) == "table" then
+        for _, k in pairs(ups) do count = count + 1; found = k end
+    end
+    if count == 1 then return found end
+    if count == 0 and NEXT_LEVEL[key] then
+        log(key .. ": the game lists no upgrade but the data has " .. NEXT_LEVEL[key] .. "; trying it")
+        return NEXT_LEVEL[key]
+    end
+    return nil
+end
+
+-- True if a building has no further upgrade (its chain's highest level):
+-- the game lists none, and the data doesn't know of a higher level either.
 local function is_maxed(key)
     if not key then return false end
+    if NEXT_LEVEL[key] then return false end
     local ups = cm:get_building_level_upgrades(key)
     return type(ups) == "table" and next(ups) == nil
 end
@@ -453,7 +512,7 @@ end
 -- Readable name from a key ("wh3_main_combi_province_southern_yvresse" ->
 -- "southern yvresse"). Uses no game calls.
 local function loc_name(prefix, key)
-    local tail = string.match(key, "region_(.+)$") or string.match(key, "province_(.+)$") or key
+    local tail = after(key, "region_") or after(key, "province_") or key
     return underscores_to_spaces(tail)
 end
 
@@ -468,17 +527,18 @@ local function province_label(key)
     return loc_name("provinces_onscreen_", key)
 end
 
--- Resource name (as it appears in the game's resource key) -> High Elf chain.
--- Built once from the data; a few game names differ from the chain names.
--- Checked against the game's slot templates: each resource key's slot permits
--- the High Elf building named here (res_rom_oil -> pastures, and so on).
+-- Resource name (as it appears in the game's resource key) -> the player's
+-- culture's resource chain. Built from the data when the rules are chosen; a
+-- few game names differ from the chain names. Checked against the game's slot
+-- templates: each resource key's slot permits the building named here
+-- (res_rom_oil -> pastures, and so on).
 local RESOURCE_ALIASES = { timber = "wood", oil = "pasture", textiles = "pottery", lead = "salt" }
 local NOT_RESOURCES = { res_fortress = true, res_location_colony = true }
 local RESOURCE_CHAINS = {}
 local function build_resource_chains()
     RESOURCE_CHAINS = {}
     for chain in pairs(UA_DATA.first) do
-        local name = string.match(chain, RULES.tag .. "_resource_(.+)$")
+        local name = after(chain, RULES.tag .. "_resource_")
         if name then RESOURCE_CHAINS[#RESOURCE_CHAINS + 1] = { name = name, chain = chain } end
     end
     table.sort(RESOURCE_CHAINS, function(a, b) return #a.name > #b.name end) -- longest name first
@@ -573,8 +633,6 @@ local function level_ok(info, building_key)
     return lvl >= t[2]
 end
 
--- The landmark this settlement can build: a configured one, or the one its
--- slot template permits (High Elf or culture-neutral only; see gen_data.py).
 -- How well a landmark candidate fits the player, from the game's culture-variant
 -- rows: 1 = made for this faction, 2 = for this culture, 3 = for everyone,
 -- nil = not available. The most specific matching row decides (a faction row
@@ -863,14 +921,15 @@ local function run_turn(faction)
         local resolved = resolved_layout(info)
         local nslots = #info.empty
         for _, e in ipairs(info.filled) do if e.kind == "secondary" then nslots = nslots + 1 end end
-        -- A High Elf landmark the settlement can build always gets its last slot,
+        -- A landmark the settlement can build always gets its last slot,
         -- even if it ranks below what fits; it bumps the lowest-ranked item.
         local landmark, lm_rank = landmark_for(info)
         local lm_chain = landmark and chain_of(landmark)
         local top = {}
         for i = 1, math.min(nslots, #resolved) do top[i] = resolved[i] end
-        -- Only High Elf-specific landmarks (keys with "hef"): for neutral ones the
-        -- game may refuse High Elves, and a good building would be lost for nothing.
+        -- Only landmarks made for the player's culture (tagged key, or a faction/
+        -- culture row): the game may refuse a neutral one, and a good building
+        -- would be lost for nothing.
         if lm_chain and nslots > 0 and #top == nslots and level_ok(info, landmark) and (has_tag(landmark, RULES.tag) or (lm_rank or 3) <= 2) then
             local inside = false
             for _, r in ipairs(top) do if r.chain == lm_chain then inside = true end end
@@ -911,7 +970,7 @@ local function run_turn(faction)
         end
     end
 
-    local explain, waiting_on = {}, {}  -- region -> why slots are empty (last pass wins)
+    local explain, waiting_on, main_note = {}, {}, {}  -- region -> why slots are empty / main building not upgraded (last pass wins)
     local provinces, skipped = group_provinces(faction)
     stats.skipped = skipped
     trace("provinces grouped: " .. #provinces .. (#skipped > 0 and (", skipped by you: " .. table.concat(skipped, ", ")) or ""))
@@ -932,12 +991,27 @@ local function run_turn(faction)
                 infos[#infos + 1] = inspect_region(r, turn)
             end
 
-            -- 1. Main settlement buildings.
+            -- 1. Main settlement buildings. Whatever stops an upgrade is noted
+            -- for the trace (last pass wins), so a settlement that sits at the
+            -- same level for turns can be explained.
             for _, info in ipairs(infos) do
                 local p = info.primary
-                if p and p.current and not p.waiting then
-                    local up = single_upgrade(p.current)
-                    if up then try(p, up, prov.key, "upgraded") end
+                local rk = info.region:name()
+                main_note[rk] = nil
+                if p and p.current then
+                    if p.waiting then
+                        local pd = pending[p.id]
+                        main_note[rk] = "main building: waiting on " .. tostring(p.target) .. (pd and (" (ordered turn " .. pd.turn .. ")") or "")
+                    else
+                        local up = single_upgrade(p.current)
+                        if up then
+                            if not try(p, up, prov.key, "upgraded") then
+                                main_note[rk] = "main building " .. p.current .. " -> " .. up .. ": " .. tostring(stats.why)
+                            end
+                        elseif not is_maxed(p.current) then
+                            main_note[rk] = "main building " .. p.current .. ": more than one upgrade path; left for you"
+                        end
+                    end
                 end
             end
 
@@ -949,6 +1023,14 @@ local function run_turn(faction)
             -- Commandment checks, once per province (only when their keys are set).
             if not stats.tribute_seen[prov.key] then
                 stats.tribute_seen[prov.key] = true
+                if no_growth then
+                    local mains = {}
+                    for _, info in ipairs(infos) do
+                        local p = info.primary
+                        mains[#mains + 1] = info.region:name() .. "=" .. tostring(p and (p.waiting and (p.target .. " (queued)") or p.current))
+                    end
+                    log(tostring(prov.key) .. ": fully grown, growth buildings no longer needed (" .. table.concat(mains, ", ") .. ")")
+                end
                 check_commandments(prov.key, infos, no_growth, stats.tribute, stats.banish)
             end
 
@@ -1058,8 +1140,9 @@ local function run_turn(faction)
 
         if stats.stop or stats.orders == orders_before then break end
     end
-    -- Once per turn: why any settlement still has empty-looking slots.
-    for _, tbl in ipairs({ explain, waiting_on }) do
+    -- Once per turn: why any settlement still has empty-looking slots or an
+    -- un-upgraded main building.
+    for _, tbl in ipairs({ main_note, explain, waiting_on }) do
         local keys = {}
         for k, v in pairs(tbl) do if v then keys[#keys + 1] = k end end
         table.sort(keys)

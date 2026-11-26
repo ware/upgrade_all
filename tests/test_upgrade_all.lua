@@ -35,7 +35,7 @@ test("Loads and runs a turn without errors", function()
     eq(joined("mn"), "wh2_main_hef_farm_1")
 end)
 
-test("Never calls string.find, gsub or gmatch (they crashed the game) across a busy turn", function()
+test("Never calls string.find, match, gsub or gmatch (pattern functions misbehaved in-game) across a busy turn", function()
     new_world({
         mkregion("cap", "p1", { capital = true, gdp = 500, main = GROWING_MAJOR, resource = "res_rom_oil", resource_slot = 2,
             buildings = { false, false, "wh2_main_hef_barracks_1", false } }),
@@ -378,6 +378,58 @@ test("A growing minor keeps every Homestead in the province", function()
     eq(#W.demolished, 0)
 end)
 
+-- Great Desert of Araby: a Dark Elf minor settlement sat at the same level
+-- for turns while the summary asked for Enforce Tribute Payments, as if the
+-- province were fully grown. The one state that produces both at once is the
+-- game listing no upgrade for a main building that isn't at its top level.
+test("Great Desert of Araby: if the game lists no upgrade for a main building below its top level, the data's next level is tried", function()
+    new_world({
+        mkregion("cap", "araby", { capital = true, gdp = 500, main = H.DEF_MAJOR_MAX, buildings = { "wh2_main_def_order_1" } }),
+        mkregion("mn", "araby", { main = "wh2_main_def_settlement_minor_1", buildings = { "wh2_main_def_farm_1" } }),
+    })
+    W.culture = "wh2_main_def_dark_elves"; W.player = "wh2_main_def_naggarond"
+    W.upgrades = { wh2_main_def_settlement_minor_1 = {} }   -- the game says: nothing
+    load(); end_turn()
+    assert(has(queued_in("mn"), "wh2_main_def_settlement_minor_2"), "main building not upgraded: " .. joined("mn"))
+    assert_in(W.trace_file, "wh2_main_def_settlement_minor_1: the game lists no upgrade but the data has wh2_main_def_settlement_minor_2")
+    assert_not_in(H.summary(), "Enforce Tribute", "province treated as fully grown")
+    eq(#W.demolished, 0, "Manors demolished as if the province were grown")
+end)
+
+test("Great Desert of Araby: when the data's next level is refused too, the province still isn't treated as grown", function()
+    new_world({
+        mkregion("cap", "araby", { capital = true, gdp = 500, main = H.DEF_MAJOR_MAX, buildings = { "wh2_main_def_order_1" } }),
+        mkregion("mn", "araby", { main = "wh2_main_def_settlement_minor_1", buildings = { "wh2_main_def_farm_1" } }),
+    })
+    W.culture = "wh2_main_def_dark_elves"; W.player = "wh2_main_def_naggarond"
+    W.upgrades = { wh2_main_def_settlement_minor_1 = {} }
+    W.invalid["wh2_main_def_settlement_minor_2"] = true
+    load(); end_turn()
+    assert(not has(queued_in("mn"), "wh2_main_def_settlement_minor_2"), "refused order counted as queued")
+    assert_not_in(H.summary(), "Enforce Tribute")
+    eq(#W.demolished, 0)
+    assert_in(W.trace_file, "mn: main building wh2_main_def_settlement_minor_1 -> wh2_main_def_settlement_minor_2: refused by the game")
+end)
+
+test("A main building at its top level in the data is still maxed without asking twice", function()
+    new_world(grown_province())
+    load(); end_turn()
+    assert_in(H.summary(), "Set Tribute to the Phoenix King in: yvresse")
+    assert_in(W.trace_file, "yvresse: fully grown, growth buildings no longer needed (cap=wh2_main_hef_settlement_major_5, mn=wh2_main_hef_settlement_minor_4)")
+end)
+
+test("The trace says why a main building wasn't upgraded: waiting on an order, or more than one path", function()
+    new_world({
+        mkregion("cap", "p", { capital = true, main = "wh2_main_hef_settlement_major_3", buildings = {} }),
+        mkregion("forked", "p", { main = GROWING_MINOR, buildings = {} }),
+    })
+    W.upgrades = { wh2_main_hef_settlement_minor_2 = { "wh2_main_hef_settlement_minor_3", "wh2_main_hef_settlement_minor_3_alt" } }
+    load(); end_turn()
+    assert_in(W.trace_file, "forked: main building wh2_main_hef_settlement_minor_2: more than one upgrade path; left for you")
+    end_turn()
+    assert_in(W.trace_file, "cap: main building: waiting on wh2_main_hef_settlement_major_4 (ordered turn 1)")
+end)
+
 ---------------------------------------------------------------------------
 -- Landmarks
 ---------------------------------------------------------------------------
@@ -415,7 +467,7 @@ end)
 test("A landmark isn't held for while the settlement is too small for it", function()
     new_world({ mkregion("vale", "avelorn", { capital = true, main = "wh2_main_special_settlement_gaean_vale_3",
         template = "wh2_dlc10_special_gaean_vale_secondary", buildings = { false, false } }) })
-    W.upgrades = { wh2_main_special_settlement_gaean_vale_3 = {} }
+    W.invalid["wh2_main_special_settlement_gaean_vale_4"] = true  -- can't grow yet
     load(); end_turn()
     -- (the game refuses a level-5 landmark here; the mock doesn't check levels)
     assert(not has(queued_in("vale"), "wh2_main_special_everqueen_court"), "tried the level-5 landmark: " .. joined("vale"))
@@ -730,6 +782,66 @@ test("Orders are remembered across save and load", function()
     W.queued = {}
     end_turn()
     eq(#W.queued, 0, "forgot its order and queued again")
+end)
+
+test("pending_timeout is a hard cap: a long build is given up on at the timeout even if it could still be building", function()
+    new_world({ mkregion("cap", "p", { capital = true, main = "wh2_main_hef_settlement_major_4", buildings = {} }) })
+    load({ pending_timeout = 3 }); end_turn()   -- level 5: 7-turn build, but a 3-turn timeout
+    eq(joined("cap"), "wh2_main_hef_settlement_major_5")
+    W.queued = {}
+    end_turn(); end_turn()                      -- 1 and 2 turns old: still waiting
+    eq(#W.queued, 0, "re-ordered before the timeout")
+    end_turn()                                  -- 3 turns old: timed out
+    eq(joined("cap"), "wh2_main_hef_settlement_major_5", "not re-ordered at the timeout")
+end)
+
+test("max_passes = 1: refunded gold is not re-spent in the same turn", function()
+    new_world({
+        mkregion("poor", "unrest", { po = -10, main = MAXED_MINOR, buildings = { false } }),
+        mkregion("rich", "calm", { gdp = 500, main = MAXED_MINOR,
+            buildings = { "wh2_main_hef_barracks_1", "wh2_main_hef_farm_1", "wh2_main_hef_industry_1" } }),
+    }, 500)
+    W.demolish_refund = 2500
+    load({ max_passes = 1 }); end_turn()
+    eq(#W.demolished, 1, "barracks not demolished")
+    eq(#queued_in("poor"), 0, "a second pass ran")
+end)
+
+test("The most expensive cost seen is saved, and prices unknown buildings after a load", function()
+    new_world({
+        mkregion("a", "p", { main = MAXED_MINOR, buildings = { false } }),
+        mkregion("b", "q", { main = MAXED_MINOR, buildings = { false } }),
+    }, 3000)
+    W.costs.wh2_main_hef_farm_1 = 3000
+    load(); end_turn()
+    eq(joined("a"), "wh2_main_hef_farm_1"); eq(#queued_in("b"), 0, "b should be short of gold")
+    local saved = H.reload({ landmarks = { b = "wh2_main_hef_unknown_landmark_1" } })
+    eq(saved["upgrade_all_v2_maxcost"], 3000, "max cost not saved")
+    W.treasury = 2500
+    W.queued = {}
+    end_turn()
+    -- An unknown key is priced at the saved maximum (3000), not the initial guess (1500).
+    assert_in(W.trace_file, "wh2_main_hef_unknown_landmark_1 short of gold (3000 needed, 2500 left)")
+    eq(#W.queued, 0)
+end)
+
+test("A new popup replaces one still open, without touching the dying name", function()
+    new_world({ mkregion("mn", "p", { main = MAXED_MINOR, buildings = { false, false } }) }, 1000)
+    load(); end_turn()
+    local first = W.ui.comps["upgrade_all_popup_1"]
+    assert(first, "no first popup")
+    W.treasury = 1000
+    end_turn()                                  -- OK never clicked on the first one
+    assert(first.destroyed, "first popup left open")
+    assert(W.ui.comps["upgrade_all_popup_2"], "second popup missing")
+    eq(#W.dialogs, 2)
+end)
+
+test("Readable names from keys: the text after region_ / province_, underscores as spaces", function()
+    new_world({ mkregion("wh3_main_combi_region_tor_yvresse", "wh3_main_combi_province_southern_yvresse",
+        { main = MAXED_MINOR, buildings = { false } }) })
+    load(); end_turn()
+    assert_in(H.summary(), "southern yvresse: 1 new")
 end)
 
 test("Empty slots are explained once per turn in the trace: short of gold", function()

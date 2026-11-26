@@ -25,6 +25,9 @@ MUTATIONS = [
     ("culture check removed", "    if not rules then\n", "    if false then\n"),
     ("string.find used", "local function contains(hay, needle)\n    if type(hay) ~= \"string\" or type(needle) ~= \"string\" then return false end",
      "local function contains(hay, needle)\n    if type(hay) ~= \"string\" or type(needle) ~= \"string\" then return false end\n    if string.find(hay, needle, 1, true) then return true end"),
+    ("string.match used", "    local tail = after(key, \"region_\") or after(key, \"province_\") or key",
+     "    local tail = string.match(key, \"region_(.+)$\") or string.match(key, \"province_(.+)$\") or key"),
+    ("readable names: marker not stripped", "            local rest = string.sub(text, i + n)\n", "            local rest = string.sub(text, i)\n"),
     # protection and skipping
     ("Eataine not protected", "    if not PROTECTED or PROTECTED == \"\" then return false end\n    return contains", "    if true then return false end\n    return contains"),
     ("skipped provinces still built", "        elseif is_skipped(r) then", "        elseif false then"),
@@ -37,7 +40,7 @@ MUTATIONS = [
     ("gold floor ignored", "if before - need < CONFIG.gold_floor then", "if before - need < 0 then"),
     ("single pass only", "        if stats.stop or stats.orders == orders_before then break end", "        break"),
     ("upgrades unranked", "                if a.inc ~= b.inc then return a.inc > b.inc end\n", ""),
-    ("multi-path upgrades taken", "    for _, k in pairs(ups) do if found then return nil end found = k end", "    for _, k in pairs(ups) do found = k end"),
+    ("multi-path upgrades taken", "    if count == 1 then return found end", "    if count >= 1 then return found end"),
     ("refused build counted as success", "        if cost <= 0 then stats.refused", "        if false then stats.refused"),
     # demolition and slots
     ("keep-next exception removed", " and c ~= keep_next\n", "\n"),
@@ -51,6 +54,9 @@ MUTATIONS = [
     ("slow climate ignored", "        or (is_slow_province(region) and LAYOUT_SLOW_MINOR or LAYOUT_MINOR)", "        or LAYOUT_MINOR"),
     ("Homesteads kept when grown", "for _, item in ipairs(base) do if item ~= FARM then out[#out + 1] = item end end", "for _, item in ipairs(base) do out[#out + 1] = item end"),
     ("queued final upgrade not counted", "    if p.waiting then return is_maxed(p.target) end", "    if p.waiting then return false end"),
+    ("Araby: data's next level never tried", "    if count == 0 and NEXT_LEVEL[key] then\n", "    if false then\n"),
+    ("Araby: game's empty list taken as maxed", "    if NEXT_LEVEL[key] then return false end\n    local ups = cm:get_building_level_upgrades(key)\n    return type(ups)", "    local ups = cm:get_building_level_upgrades(key)\n    return type(ups)"),
+    ("main building notes not traced", "    for _, tbl in ipairs({ main_note, explain, waiting_on }) do", "    for _, tbl in ipairs({ explain, waiting_on }) do"),
     ("Dark Elf rules never switched on", "    use_rules(rules)\n    trace(\"rules: \"", "    trace(\"rules: \""),
     # landmarks
     ("refused landmark not remembered", "                                refused_landmarks[info.region:name() .. \"|\" .. landmark] = true\n                                trace(\"landmark \" .. landmark .. \" refused at \" .. info.region:name() .. \"; not trying again\")\n                                landmark_open = false",
