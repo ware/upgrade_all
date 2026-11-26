@@ -1,2 +1,16 @@
+# Python
 __pycache__/
 *.pyc
+.venv/
+venv/
+.pytest_cache/
+
+# macOS
+.DS_Store
+
+# RPFM output: the .pack is built from script/campaign/mod/upgrade_all.lua, not committed
+*.pack
+
+# Files the mod writes when run outside the test harness
+upgrade_all_trace.txt
+upgrade_all_summary.txt
