@@ -7001,9 +7001,6 @@ UA_DATA.landmark_candidates = {
   ["wh3_main_special_karak_vrag_secondary"] = {
     { "wh2_main_special_big_fort", false, { {"", "", "", false} } },
   },
-  ["wh3_main_special_khazid_bordkarag_secondary"] = {
-    { "wh_main_nor_erengrad_unique", false, { {"wh_dlc08_nor_norsca", "", "wh_dlc08_nor_wintertooth", false} } },
-  },
   ["wh3_main_special_misty_mountain_secondary"] = {
     { "wh2_main_special_mors_hq_1", false, { {"", "", "", false} } },
   },
@@ -7116,17 +7113,11 @@ UA_DATA.landmark_candidates = {
   ["wh_main_special_castle_drakenhof_secondary"] = {
     { "wh2_main_special_drakenhof_court_1", true, { {"", "", "", false} } },
     { "wh3_main_special_drakenhof_malevolent_museum", true, { {"wh3_dlc29_nag_undead_legions", "", "", false}, {"wh_main_vmp_vampire_counts", "", "wh_main_vmp_vampire_counts", false} } },
-    { "wh_pro02_VAMPIRES_isabella_unique", true, { {"wh_main_vmp_vampire_counts", "", "wh_main_vmp_schwartzhafen", false} } },
   },
   ["wh_main_special_couronne_secondary"] = {
     { "wh3_main_special_dragon_grave_5", false, { {"", "", "", false} } },
     { "wh_main_brt_legendary_grail_abbey", true, { {"wh_main_brt_bretonnia", "", "", false} } },
     { "wh_main_special_tournament_grounds", true, { {"", "", "", false} } },
-  },
-  ["wh_main_special_eight_peaks_secondary"] = {
-    { "wh_dlc06_dwf_eight_peaks_1", true, { {"wh_main_dwf_dwarfs", "wh_main_sc_dwf_dwarfs", "wh_main_dwf_karak_izor", false} } },
-    { "wh_dlc06_grn_boars_1_skarsnik", true, {  } },
-    { "wh_dlc06_grn_eight_peaks_1", true, { {"wh_main_grn_greenskins", "wh_main_sc_grn_greenskins", "wh_main_grn_crooked_moon", false} } },
   },
   ["wh_main_special_karag_dromar_secondary"] = {
     { "wh2_main_special_brewery", true, { {"", "", "", false} } },
@@ -7359,7 +7350,6 @@ UA_DATA.landmark_ok = {
   ["wh3_dlc25_special_gelt_embassy_1"] = true,
   ["wh3_dlc25_special_gelt_embassy_2"] = true,
   ["wh3_dlc25_special_the_gallows_tree"] = true,
-  ["wh3_dlc26_grn_boars_3_skarsnik"] = true,
   ["wh3_dlc26_special_bone_nose_idols_1"] = true,
   ["wh3_dlc26_special_bonewood_totems_1"] = true,
   ["wh3_dlc26_special_iron_penz_1"] = true,
@@ -7434,17 +7424,8 @@ UA_DATA.landmark_ok = {
   ["wh3_main_special_the_wrathgate"] = true,
   ["wh3_main_tmb_house_everlasting_life"] = true,
   ["wh3_main_vmp_special_lahmia_temple_of_blood"] = true,
-  ["wh_dlc06_dwf_eight_peaks_1"] = true,
-  ["wh_dlc06_dwf_eight_peaks_2"] = true,
-  ["wh_dlc06_dwf_eight_peaks_3"] = true,
-  ["wh_dlc06_grn_boars_1_skarsnik"] = true,
-  ["wh_dlc06_grn_boars_2_skarsnik"] = true,
-  ["wh_dlc06_grn_eight_peaks_1"] = true,
-  ["wh_dlc06_grn_eight_peaks_2"] = true,
-  ["wh_dlc06_grn_eight_peaks_3"] = true,
   ["wh_main_brt_legendary_enchantress_tower"] = true,
   ["wh_main_brt_legendary_grail_abbey"] = true,
-  ["wh_main_nor_erengrad_unique"] = true,
   ["wh_main_sch_special_moot_cauldron_1"] = true,
   ["wh_main_sch_special_the_rock_1"] = true,
   ["wh_main_special_archecclesiatium"] = true,
@@ -7474,7 +7455,6 @@ UA_DATA.landmark_ok = {
   ["wh_main_special_nuln_gunnery_school"] = true,
   ["wh_main_special_tournament_grounds"] = true,
   ["wh_main_special_ubersreik_inn_1"] = true,
-  ["wh_pro02_VAMPIRES_isabella_unique"] = true,
   ["wh_twa03_special_albion_port_def_1"] = true,
   ["wh_twa03_special_albion_port_def_2"] = true,
   ["wh_twa03_special_albion_port_def_ruin"] = true,
@@ -7509,6 +7489,235 @@ UA_DATA.unique_chain = {
 UA_DATA.wrong_culture = {
   ["wh2_dlc17_silent_sanctum_def_boost_0"] = true,
   ["wh2_dlc17_silent_sanctum_def_boost_1"] = true,
+}
+-- culture -> layout role -> { chain, ... } from building_superchain (see ROLES in gen_data.py)
+UA_DATA.roles = {
+  ["wh2_dlc09_tmb_tomb_kings"] = {
+    growth = { "wh2_dlc09_tmb_growth" },
+    order = { "wh2_dlc09_tmb_public_order" },
+    walls_major = { "wh2_dlc09_tmb_defence_major" },
+    industry = { "wh2_dlc09_tmb_income" },
+    explore = { "wh2_main_foreign_slot_discovery_tmb" },
+    walls_minor = { "wh2_dlc09_tmb_defence_minor" },
+    worship = { "wh2_dlc09_tmb_ushabti" },
+    wizards = { "wh2_dlc09_tmb_hierotitan" },
+    special = { "wh2_dlc09_tmb_necrosphinx" },
+  },
+  ["wh2_dlc11_cst_vampire_coast"] = {
+    explore = { "wh2_main_foreign_slot_discovery_cst" },
+  },
+  ["wh2_main_def_dark_elves"] = {
+    growth = { "wh2_main_def_farm" },
+    order = { "wh2_main_def_order" },
+    income2 = { "wh2_main_def_slaves" },
+    walls_major = { "wh2_main_def_defence_major" },
+    industry = { "wh2_main_def_industry" },
+    explore = { "wh2_main_foreign_slot_discovery_def" },
+    trade = { "wh2_main_def_roads" },
+    walls_minor = { "wh2_main_def_defence_minor" },
+    worship = { "wh2_main_def_worship" },
+    wizards = { "wh2_main_def_sorcery" },
+  },
+  ["wh2_main_hef_high_elves"] = {
+    growth = { "wh2_main_hef_farm" },
+    order = { "wh2_main_hef_order" },
+    income2 = { "wh2_main_hef_court" },
+    walls_major = { "wh2_main_hef_defence_major" },
+    industry = { "wh2_main_hef_industry" },
+    explore = { "wh2_main_foreign_slot_discovery_hef" },
+    trade = { "wh2_main_hef_embassy" },
+    walls_minor = { "wh2_main_hef_defence_minor" },
+    worship = { "wh2_main_hef_worship" },
+    wizards = { "wh2_main_hef_mages" },
+    special = { "wh2_main_hef_dragons" },
+  },
+  ["wh2_main_lzd_lizardmen"] = {
+    growth = { "wh2_main_lzd_farm" },
+    order = { "wh2_main_lzd_order" },
+    walls_major = { "wh2_main_lzd_defence_major" },
+    industry = { "wh2_main_lzd_industry" },
+    explore = { "wh2_main_foreign_slot_discovery_lzd" },
+    trade = { "wh2_main_lzd_worship_sotek" },
+    walls_minor = { "wh2_main_lzd_defence_minor" },
+    worship = { "wh2_main_lzd_worship_oldones" },
+    special = { "wh2_main_lzd_slann" },
+  },
+  ["wh2_main_skv_skaven"] = {
+    growth = { "wh2_main_skv_farm" },
+    order = { "wh2_main_skv_order" },
+    walls_major = { "wh2_main_skv_defence_major" },
+    industry = { "wh2_main_skv_industry" },
+    explore = { "wh2_main_foreign_slot_discovery_skv" },
+    walls_minor = { "wh2_main_skv_defence_minor" },
+    worship = { "wh2_main_skv_plagues" },
+  },
+  ["wh3_dlc23_chd_chaos_dwarfs"] = {
+    growth = { "wh3_dlc23_chd_outpost_mine" },
+    order = { "wh3_dlc23_chd_outpost_watch_towers", "wh3_dlc23_chd_tower_patrol" },
+    income2 = { "wh3_dlc23_chd_factory_refinery" },
+    industry = { "wh3_dlc23_chd_factory_assembly_line" },
+    explore = { "wh3_dlc23_foreign_slot_discovery_chd" },
+    walls_minor = { "wh3_dlc23_chd_factory_garrison", "wh3_dlc23_chd_outpost_overseer_hut" },
+  },
+  ["wh3_dlc29_nag_undead_legions"] = {
+    explore = { "wh3_dlc29_foreign_slot_discovery_nag" },
+  },
+  ["wh3_main_cth_cathay"] = {
+    growth = { "wh3_main_cth_growth_yang", "wh3_main_cth_growth_yin" },
+    order = { "wh3_main_cth_order_yang", "wh3_main_cth_order_yin" },
+    walls_major = { "wh3_main_cth_defence_yang", "wh3_main_cth_defence_yin" },
+    industry = { "wh3_main_cth_income_yang", "wh3_main_cth_income_yin" },
+    explore = { "wh3_main_foreign_slot_discovery_cth" },
+    walls_minor = { "wh3_main_cth_walls_minor" },
+    worship = { "wh3_main_cth_artillery", "wh3_main_cth_bastion_2" },
+    wizards = { "wh3_main_cth_bastion_3" },
+    special = { "wh3_main_cth_bastion_4" },
+  },
+  ["wh3_main_dae_daemons"] = {
+    growth = { "wh3_main_dae_temple_kho", "wh3_main_dae_temple_nur", "wh3_main_dae_temple_sla", "wh3_main_dae_temple_tze" },
+    income2 = { "wh3_main_dae_growth_gold_kho", "wh3_main_dae_growth_gold_nur", "wh3_main_dae_growth_gold_sla", "wh3_main_dae_growth_gold_tze" },
+    walls_major = { "wh3_main_dae_garrison_major" },
+    industry = { "wh3_main_dae_control_kho", "wh3_main_dae_control_nur", "wh3_main_dae_control_sla", "wh3_main_dae_control_tze" },
+    explore = { "wh3_main_foreign_slot_discovery_dae" },
+    trade = { "wh3_main_dae_growth_recruit_kho", "wh3_main_dae_growth_recruit_nur", "wh3_main_dae_growth_recruit_sla", "wh3_main_dae_growth_recruit_tze" },
+    walls_minor = { "wh3_main_dae_garrison_minor" },
+    worship = { "wh3_main_dae_advanced_2_kho", "wh3_main_dae_advanced_2_nur", "wh3_main_dae_advanced_2_sla", "wh3_main_dae_advanced_2_tze" },
+  },
+  ["wh3_main_kho_khorne"] = {
+    growth = { "wh3_main_dae_temple_kho", "wh3_main_kho_infra_growth_income" },
+    order = { "wh3_main_kho_infra_order" },
+    income2 = { "wh3_main_dae_growth_gold_kho" },
+    walls_major = { "wh3_main_kho_walls_major" },
+    industry = { "wh3_main_dae_control_kho", "wh3_main_kho_infra_growth_replenish" },
+    explore = { "wh3_main_foreign_slot_discovery_kho" },
+    trade = { "wh3_main_dae_growth_recruit_kho" },
+    walls_minor = { "wh3_main_kho_walls_minor" },
+    worship = { "wh3_main_dae_advanced_2_kho", "wh3_main_kho_heavy_cav" },
+    special = { "wh3_main_kho_infra_champion" },
+  },
+  ["wh3_main_ksl_kislev"] = {
+    growth = { "wh3_main_ksl_growth_xp" },
+    order = { "wh3_main_ksl_trade_order" },
+    income2 = { "wh3_main_ksl_growth_recruit_cost" },
+    walls_major = { "wh3_main_ksl_kislev_city_walls", "wh3_main_ksl_walls_major" },
+    industry = { "wh3_main_ksl_gold" },
+    explore = { "wh3_main_foreign_slot_discovery_ksl" },
+    walls_minor = { "wh3_main_ksl_walls_minor" },
+    worship = { "wh3_main_ksl_artillery" },
+    wizards = { "wh3_dlc24_ksl_woods" },
+  },
+  ["wh3_main_nur_nurgle"] = {
+    growth = { "wh3_main_dae_temple_nur", "wh3_main_nur_8" },
+    order = { "wh3_main_nur_7" },
+    income2 = { "wh3_main_dae_growth_gold_nur" },
+    walls_major = { "wh3_dlc25_nur_walls" },
+    industry = { "wh3_main_dae_control_nur", "wh3_main_nur_6" },
+    explore = { "wh3_main_foreign_slot_discovery_nur" },
+    trade = { "wh3_main_dae_growth_recruit_nur" },
+    worship = { "wh3_main_dae_advanced_2_nur" },
+  },
+  ["wh3_main_ogr_ogre_kingdoms"] = {
+    growth = { "wh3_main_ogr_farm" },
+    order = { "wh3_main_ogr_order" },
+    income2 = { "wh3_main_ogr_supplies" },
+    industry = { "wh3_main_ogr_industry" },
+    explore = { "wh3_main_foreign_slot_discovery_ogr" },
+    trade = { "wh3_main_ogr_settlement_corruption" },
+    walls_minor = { "wh3_main_ogr_defence_minor" },
+  },
+  ["wh3_main_sla_slaanesh"] = {
+    growth = { "wh3_main_dae_temple_sla", "wh3_main_sla_infra_order" },
+    order = { "wh3_main_sla_infra_growth_xp" },
+    income2 = { "wh3_main_dae_growth_gold_sla" },
+    walls_major = { "wh3_main_sla_walls_major" },
+    industry = { "wh3_main_dae_control_sla", "wh3_main_sla_infra_growth_income" },
+    explore = { "wh3_main_foreign_slot_discovery_sla" },
+    trade = { "wh3_main_dae_growth_recruit_sla" },
+    walls_minor = { "wh3_main_sla_walls_minor" },
+    worship = { "wh3_dlc27_sla_riders", "wh3_main_dae_advanced_2_sla", "wh3_main_sla_chariots" },
+  },
+  ["wh3_main_tze_tzeentch"] = {
+    growth = { "wh3_main_dae_temple_tze", "wh3_main_tze_growth_gold" },
+    income2 = { "wh3_main_dae_growth_gold_tze", "wh3_main_tze_order_los" },
+    walls_major = { "wh3_main_tze_walls_major" },
+    industry = { "wh3_main_dae_control_tze", "wh3_main_tze_growth_corruption" },
+    explore = { "wh3_main_foreign_slot_discovery_tze" },
+    trade = { "wh3_main_dae_growth_recruit_tze" },
+    walls_minor = { "wh3_main_tze_walls_minor" },
+    worship = { "wh3_main_dae_advanced_2_tze", "wh3_main_tze_flamer" },
+  },
+  ["wh_dlc05_wef_wood_elves"] = {
+    explore = { "wh2_main_foreign_slot_discovery_wef" },
+  },
+  ["wh_dlc08_nor_norsca"] = {
+    growth = { "wh_main_NORSCA_loot", "wh_main_NORSCA_outpost_growth" },
+    order = { "wh_main_NORSCA_worship" },
+    walls_major = { "wh_main_NORSCA_walls" },
+    industry = { "wh_main_NORSCA_outpost_income", "wh_main_NORSCA_slaves" },
+    explore = { "wh2_main_foreign_slot_discovery_nor" },
+    worship = { "wh_main_NORSCA_offerings" },
+  },
+  ["wh_main_brt_bretonnia"] = {
+    growth = { "wh_main_BRETONNIA_farm_basic" },
+    order = { "wh_main_BRETONNIA_tavern" },
+    income2 = { "wh_main_BRETONNIA_farm_extra" },
+    walls_major = { "wh_main_BRETONNIA_walls" },
+    industry = { "wh_main_BRETONNIA_industry_basic" },
+    explore = { "wh2_main_foreign_slot_discovery_brt" },
+    trade = { "wh_main_BRETONNIA_industry_extra" },
+    walls_minor = { "wh_main_BRETONNIA_garrison" },
+    worship = { "wh_main_BRETONNIA_worship" },
+  },
+  ["wh_main_chs_chaos"] = {
+    growth = { "wh3_main_chs_loot" },
+    order = { "wh3_main_chs_order" },
+    industry = { "wh3_main_chs_slaves" },
+  },
+  ["wh_main_dwf_dwarfs"] = {
+    growth = { "wh_main_DWARFS_farm" },
+    order = { "wh_main_DWARFS_tavern" },
+    walls_major = { "wh_main_DWARFS_walls" },
+    industry = { "wh_main_DWARFS_industry" },
+    explore = { "wh2_main_foreign_slot_discovery_dwf" },
+    trade = { "wh_main_DWARFS_trade_depot" },
+    walls_minor = { "wh_main_DWARFS_garrison" },
+    worship = { "wh_main_DWARFS_slayers" },
+    wizards = { "wh_main_DWARFS_engineer" },
+  },
+  ["wh_main_emp_empire"] = {
+    growth = { "wh_main_EMPIRE_farm_basic" },
+    order = { "wh_main_EMPIRE_tavern" },
+    income2 = { "wh2_main_EMPIRE_roads" },
+    walls_major = { "wh_main_EMPIRE_walls" },
+    industry = { "wh_main_EMPIRE_industry_basic" },
+    explore = { "wh2_main_foreign_slot_discovery_emp" },
+    walls_minor = { "wh_main_EMPIRE_garrison" },
+    wizards = { "wh_main_EMPIRE_wizards" },
+    special = { "wh2_main_EMPIRE_academy" },
+  },
+  ["wh_main_grn_greenskins"] = {
+    growth = { "wh_main_GREENSKIN_farm" },
+    order = { "wh_main_SAVAGEORC_boss" },
+    income2 = { "wh2_main_grn_raiders" },
+    walls_major = { "wh_main_GREENSKIN_walls" },
+    industry = { "wh_main_GREENSKIN_industry" },
+    explore = { "wh2_main_foreign_slot_discovery_grn" },
+    walls_minor = { "wh_main_GREENSKIN_garrison", "wh_main_SAVAGEORC_garrison" },
+    worship = { "wh_main_GREENSKIN_monsters" },
+    special = { "wh_main_GREENSKIN_forest_beasts" },
+  },
+  ["wh_main_vmp_vampire_counts"] = {
+    growth = { "wh_main_VAMPIRES_ossuary" },
+    order = { "wh_main_VAMPIRES_repression" },
+    income2 = { "wh_main_VAMPIRES_balefire" },
+    walls_major = { "wh_main_VAMPIRES_walls" },
+    industry = { "wh_main_VAMPIRES_corpses" },
+    explore = { "wh2_main_foreign_slot_discovery_vmp" },
+    trade = { "wh2_main_VAMPIRES_wraiths" },
+    walls_minor = { "wh_main_VAMPIRES_garrison" },
+    wizards = { "wh_main_VAMPIRES_necromancers" },
+    special = { "wh_main_VAMPIRES_vampires" },
+  },
 }
 
 --[[
@@ -7557,6 +7766,9 @@ local CONFIG = {
     max_log_lines_per_turn = 20000, -- trace file limit; resets every turn
     initial_cost_guess  = 1500,  -- assumed cost until a real one has been seen
     pending_timeout     = 15,    -- turns to wait on a queued building before retrying that slot
+    -- Layout role -> building chain, overriding what the game data picks for
+    -- your culture (e.g. { wizards = "wh2_main_hef_mages" }). See CULTURE_RULES.
+    roles_override      = {},
     -- Each turn's summary is written to upgrade_all_summary.txt, and shown in a
     -- popup at the end of End Turn. Set popup = false if the popup causes trouble.
     popup               = true,
@@ -7668,14 +7880,29 @@ local function underscores_to_spaces(text)
     return table.concat(out)
 end
 
--- Rules for each culture the mod builds for. Layouts: "RESOURCE" and
--- "LANDMARK" are resolved per region. `tag` is the culture's word in building
--- keys ("_hef_"), which the crash guard requires as a whole word.
+-- Rules for each culture the mod builds for.
+--
+-- Layouts are sequences of *roles* (capital, minor, slow_minor). A role names
+-- what a slot is for; which building chain fills it comes from the game data
+-- (UA_DATA.roles, derived from building_superchain), so the same priorities
+-- apply to any culture whose chains the data knows. "RESOURCE" and "LANDMARK"
+-- are resolved per region. The role order: grow, pacify, earn, defend,
+-- resource, industry, landmark, explore, then the culture's own specials.
+--
+-- previous_* are the hand-written chain lists the mod used before roles. They
+-- are not used to build; they are compared with the derived lists at load and
+-- every turn, and the trace says whether anything differs, so a change in
+-- behaviour can be traced to the data. `tag` is the culture's word in
+-- building keys ("_hef_"), which the crash guard requires as a whole word.
 local CULTURE_RULES = {
     wh2_main_hef_high_elves = {
         tag = "hef", name = "High Elves", adj = "High Elf",
         farm = "wh2_main_hef_farm",                                  -- Homestead
-        capital = { "wh2_main_hef_farm",                             -- Homestead
+        capital = { "growth", "order", "income2", "walls_major", "RESOURCE", "industry", "LANDMARK",
+                    "explore", "trade", "special" },
+        minor = { "growth", "industry", "RESOURCE", "walls_minor", "explore" },
+        slow_minor = { "growth", "explore", "RESOURCE", "walls_minor", "industry" },
+        previous_capital = { "wh2_main_hef_farm",                    -- Homestead
                     "wh2_main_hef_order",                            -- Plaza
                     "wh2_main_hef_court",                            -- Elven Gardens
                     "wh2_main_hef_defence_major",                    -- Stone Walls
@@ -7685,10 +7912,10 @@ local CULTURE_RULES = {
                     "wh2_main_foreign_slot_discovery_hef",           -- City Tunnels
                     "wh2_main_hef_embassy",                          -- Elven Embassy
                     "wh2_main_hef_dragons" },                        -- Dragon's Lair
-        minor = { "wh2_main_hef_farm", "wh2_main_hef_industry", "RESOURCE",
+        previous_minor = { "wh2_main_hef_farm", "wh2_main_hef_industry", "RESOURCE",
                   "wh2_main_hef_defence_minor",                      -- Watchtower
                   "wh2_main_foreign_slot_discovery_hef" },
-        slow_minor = { "wh2_main_hef_farm", "wh2_main_foreign_slot_discovery_hef", "RESOURCE",
+        previous_slow_minor = { "wh2_main_hef_farm", "wh2_main_foreign_slot_discovery_hef", "RESOURCE",
                        "wh2_main_hef_defence_minor", "wh2_main_hef_industry" },
         tribute_key = CONFIG.phoenix_tribute_key, tribute_name = "Tribute to the Phoenix King",
         banish_key = CONFIG.banish_corruption_key,
@@ -7697,7 +7924,11 @@ local CULTURE_RULES = {
     wh2_main_def_dark_elves = {
         tag = "def", name = "Dark Elves", adj = "Dark Elf",
         farm = "wh2_main_def_farm",                                  -- Dark Elf Manors
-        capital = { "wh2_main_def_farm",                             -- Dark Elf Manors
+        capital = { "growth", "order", "income2", "walls_major", "RESOURCE", "industry", "LANDMARK",
+                    "explore", "worship", "wizards" },
+        minor = { "growth", "industry", "RESOURCE", "walls_minor", "explore" },
+        slow_minor = { "growth", "explore", "RESOURCE", "walls_minor", "industry" },
+        previous_capital = { "wh2_main_def_farm",                    -- Dark Elf Manors
                     "wh2_main_def_order",                            -- Torture Posts
                     "wh2_main_def_slaves",                           -- Slave Pens
                     "wh2_main_def_defence_major",                    -- Slave Gate (walls)
@@ -7707,10 +7938,10 @@ local CULTURE_RULES = {
                     "wh2_main_foreign_slot_discovery_def",           -- City Tunnels
                     "wh2_main_def_worship",                          -- Altar of Khaine
                     "wh2_main_def_sorcery" },                        -- Sorceress' Abode
-        minor = { "wh2_main_def_farm", "wh2_main_def_industry", "RESOURCE",
+        previous_minor = { "wh2_main_def_farm", "wh2_main_def_industry", "RESOURCE",
                   "wh2_main_def_defence_minor",                      -- Watchtowers
                   "wh2_main_foreign_slot_discovery_def" },
-        slow_minor = { "wh2_main_def_farm", "wh2_main_foreign_slot_discovery_def", "RESOURCE",
+        previous_slow_minor = { "wh2_main_def_farm", "wh2_main_foreign_slot_discovery_def", "RESOURCE",
                        "wh2_main_def_defence_minor", "wh2_main_def_industry" },
         tribute_key = CONFIG.enforce_tribute_key, tribute_name = "Enforce Tribute Payments",
         banish_key = nil,
@@ -7740,7 +7971,10 @@ end
 -- Every race's tag (the same list as tools/gen_data.py). A key with none of
 -- these is culture-neutral: an "_other" landmark variant, a special port...
 local CULTURE_TAGS = { "hef", "def", "dwf", "nor", "emp", "grn", "vmp", "tmb", "skv", "lzd", "wef", "brt", "chs",
-                       "kho", "nur", "sla", "tze", "dae", "ogr", "ksl", "cth", "chd", "cst", "woc", "nag", "bst", "kul", "den" }
+                       "kho", "nur", "sla", "tze", "dae", "ogr", "ksl", "cth", "chd", "cst", "woc", "nag", "bst", "kul", "den",
+                       -- the original game's races also key buildings by full name
+                       "EMPIRE", "DWARFS", "DWARF", "BRETONNIA", "VAMPIRES", "GREENSKINS", "GREENSKIN", "SAVAGEORC",
+                       "NORSCA", "CHAOS", "BEASTMEN", "HUMAN", "TEB" }
 local function any_culture_tag(key)
     for _, t in ipairs(CULTURE_TAGS) do if has_tag(key, t) then return true end end
     return false
@@ -8061,11 +8295,76 @@ local function build_resource_chains()
     table.sort(RESOURCE_CHAINS, function(a, b) return #a.name > #b.name end) -- longest name first
 end
 
+-- Turns a role sequence into a chain list for a culture. RESOURCE and
+-- LANDMARK pass through; a role the data has no chain for is dropped and
+-- named in `missing`; a role with several chains takes the first and is named
+-- in `ambiguous`. CONFIG.roles_override wins over the data.
+local function resolve_layout(culture, roles)
+    local table_for = (UA_DATA.roles and UA_DATA.roles[culture]) or {}
+    local out, missing, ambiguous = {}, {}, {}
+    for _, role in ipairs(roles) do
+        if role == "RESOURCE" or role == "LANDMARK" then
+            out[#out + 1] = role
+        else
+            local override = CONFIG.roles_override and CONFIG.roles_override[role]
+            local chains = table_for[role]
+            if override then
+                out[#out + 1] = override
+            elseif chains and chains[1] then
+                out[#out + 1] = chains[1]
+                if chains[2] then ambiguous[#ambiguous + 1] = role .. " (" .. table.concat(chains, ", ") .. ")" end
+            else
+                missing[#missing + 1] = role
+            end
+        end
+    end
+    return out, missing, ambiguous
+end
+
+local function same_list(a, b)
+    if #a ~= #b then return false end
+    for i = 1, #a do if a[i] ~= b[i] then return false end end
+    return true
+end
+
+-- One line per layout saying whether the derived list matches the previous
+-- hand-written one; written to the trace at load and once per turn so the
+-- trace always shows which layouts were in force.
+local layout_report = {}
+
+local function derive_layouts(rules)
+    local culture = nil
+    for key, r in pairs(CULTURE_RULES) do if r == rules then culture = key end end
+    layout_report = {}
+    local result = {}
+    for _, which in ipairs({ "capital", "minor", "slow_minor" }) do
+        local derived, missing, ambiguous = resolve_layout(culture, rules[which])
+        local previous = rules["previous_" .. which]
+        local line
+        if #missing > 0 and previous then
+            -- the data can't fill every role: build from the previous list and say so
+            derived = previous
+            line = string.format("layout %s: data has no chain for %s; using the previous list", which, table.concat(missing, ", "))
+        elseif previous and same_list(derived, previous) then
+            line = string.format("layout %s: derived from roles, same as before (%s)", which, table.concat(derived, ", "))
+        elseif previous then
+            line = string.format("layout %s CHANGED: now %s; before %s", which, table.concat(derived, ", "), table.concat(previous, ", "))
+        else
+            line = string.format("layout %s: derived from roles (%s)", which, table.concat(derived, ", "))
+        end
+        if #ambiguous > 0 then line = line .. "; more than one chain for " .. table.concat(ambiguous, "; ") end
+        layout_report[#layout_report + 1] = line
+        result[which] = derived
+    end
+    return result
+end
+
 -- Switches every culture-specific rule over to the given culture's.
 local function use_rules(rules)
     RULES = rules
     FARM = rules.farm
-    LAYOUT_CAPITAL, LAYOUT_MINOR, LAYOUT_SLOW_MINOR = rules.capital, rules.minor, rules.slow_minor
+    local layouts = derive_layouts(rules)
+    LAYOUT_CAPITAL, LAYOUT_MINOR, LAYOUT_SLOW_MINOR = layouts.capital, layouts.minor, layouts.slow_minor
     PROTECTED = (rules.protect == "config") and CONFIG.protected_province or starting_province
     build_resource_chains()
 end
@@ -9401,6 +9700,7 @@ cm:add_first_tick_callback(function()
     end
     use_rules(rules)
     trace("rules: " .. rules.name)
+    for _, line in ipairs(layout_report) do trace(line) end
     listen_for_order_signals()
 
     local function is_player(c) local f = c:faction(); return f:is_human() and f:name() == player end
@@ -9409,6 +9709,7 @@ cm:add_first_tick_callback(function()
         trace_lines = 0
         for k in pairs(slow_cache) do slow_cache[k] = nil end
         trace("work starting")
+        for _, line in ipairs(layout_report) do trace(line) end
         if CONFIG.test_mode then
             local ok, err = pcall(run_test_mode_staged, fkey)
             if not ok then write_summary("Upgrade All test mode error:\n" .. tostring(err)) end

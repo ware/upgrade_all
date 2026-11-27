@@ -30,7 +30,43 @@ OWN_CULTURE = {"hef": "wh2_main_hef_high_elves", "def": "wh2_main_def_dark_elves
 # "..._tmb_1", "..._other" (suffix), or "..._sla_special_..." (mid-key, when
 # reached through a chain set or super chain rather than named explicitly).
 OTHER_CODES = ("dwf nor emp grn vmp tmb skv lzd wef brt chs kho nur sla tze dae ogr "
-               "ksl cth chd cst woc nag bst kul den").split()
+               "ksl cth chd cst woc nag bst kul den "
+               # the original game's races also key buildings by full name
+               "EMPIRE DWARFS DWARF BRETONNIA VAMPIRES GREENSKINS GREENSKIN SAVAGEORC NORSCA CHAOS BEASTMEN HUMAN TEB").split()
+
+# Every culture's key and the words that mark its buildings, for the role
+# table (UA_DATA.roles). Only High Elves and Dark Elves are built for today;
+# the rest are there so a future layout can be derived and checked.
+CULTURE_WORDS = {
+    "wh2_main_hef_high_elves": ["hef"], "wh2_main_def_dark_elves": ["def"],
+    "wh_main_emp_empire": ["emp", "EMPIRE"], "wh_main_dwf_dwarfs": ["dwf", "DWARFS", "DWARF"],
+    "wh_main_brt_bretonnia": ["brt", "BRETONNIA"], "wh_main_vmp_vampire_counts": ["vmp", "VAMPIRES"],
+    "wh_main_grn_greenskins": ["grn", "GREENSKINS", "GREENSKIN", "SAVAGEORC"], "wh_main_chs_chaos": ["chs", "CHAOS"],
+    "wh_dlc08_nor_norsca": ["nor", "NORSCA"], "wh_dlc05_wef_wood_elves": ["wef"], "wh_dlc03_bst_beastmen": ["bst"],
+    "wh2_main_lzd_lizardmen": ["lzd"], "wh2_main_skv_skaven": ["skv"], "wh2_dlc09_tmb_tomb_kings": ["tmb"],
+    "wh2_dlc11_cst_vampire_coast": ["cst"], "wh3_main_ksl_kislev": ["ksl"], "wh3_main_cth_cathay": ["cth"],
+    "wh3_main_kho_khorne": ["kho"], "wh3_main_nur_nurgle": ["nur"], "wh3_main_sla_slaanesh": ["sla"],
+    "wh3_main_tze_tzeentch": ["tze"], "wh3_main_dae_daemons": ["dae"], "wh3_main_ogr_ogre_kingdoms": ["ogr"],
+    "wh3_dlc23_chd_chaos_dwarfs": ["chd"], "wh3_dlc29_nag_undead_legions": ["nag"],
+}
+
+# Layout roles -> fragments of the game's building_superchain key. The same
+# superchains are used by every race, so a role resolves to each culture's
+# own chain for it (High Elves: growth -> wh2_main_hef_farm; Dark Elves:
+# growth -> wh2_main_def_farm; Empire: growth -> wh_main_EMPIRE_farm_basic).
+ROLES = [
+    ("growth",      ["infrastructure1_farm"]),
+    ("order",       ["infrastructure3_order"]),
+    ("income2",     ["infrastructure4_energy"]),
+    ("walls_major", ["defence_major", "_walls"]),
+    ("industry",    ["infrastructure2_industry"]),
+    ("explore",     ["foreign_slot_discovery"]),
+    ("trade",       ["infrastructure5_tradingspying"]),
+    ("walls_minor", ["defence_minor", "human_garrison"]),
+    ("worship",     ["support2_worship"]),
+    ("wizards",     ["support3_wizards"]),
+    ("special",     ["support4_other"]),
+]
 
 
 
@@ -238,6 +274,38 @@ def main(exports, out_path):
     out.append("UA_DATA.wrong_culture = {")
     for k in wrong:
         out.append(f"  [{lua_str(k)}] = true,")
+    out.append("}")
+
+    # Roles: culture -> role -> chains, from building_superchain. Faction-only
+    # (lord-specific) chains, horde chains, specials and the prologue are left
+    # out; what remains is the ordinary chain each culture has for the role.
+    # More than one chain is kept in table order so the engine can report it.
+    all_faction_chains = {chain_of[v["building"]] for v in variants if v["faction"] and v["building"] in chain_of}
+    unique_any = all_faction_chains - open_chains
+    superchain = {r["key"]: r["building_superchain"] for r in chains_tbl}
+    horde_chain = {r["key"] for r in chains_tbl if r["optional_required_horde_commander"]}
+    roles_out = {}
+    for culture, words in CULTURE_WORDS.items():
+        found = collections.defaultdict(list)
+        for c in sorted(superchain):
+            if not (set(c.split("_")) & set(words)):
+                continue
+            if c in unique_any or c in horde_chain or "special" in c or "prologue" in c:
+                continue
+            for role, frags in ROLES:
+                if any(f in superchain[c] for f in frags):
+                    found[role].append(c)
+        if found:
+            roles_out[culture] = found
+    out.append("-- culture -> layout role -> { chain, ... } from building_superchain (see ROLES in gen_data.py)")
+    out.append("UA_DATA.roles = {")
+    for culture in sorted(roles_out):
+        out.append(f"  [{lua_str(culture)}] = {{")
+        for role, _ in ROLES:
+            cs = roles_out[culture].get(role)
+            if cs:
+                out.append(f"    {role} = {{ {', '.join(lua_str(c) for c in cs)} }},")
+        out.append("  },")
     out.append("}")
 
     pathlib.Path(out_path).write_text("\n".join(out) + "\n")

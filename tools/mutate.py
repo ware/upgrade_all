@@ -80,6 +80,11 @@ MUTATIONS = [
     # orders
     ("orders never expire early", "    if not bt or bt <= 0 then return false end\n    return age > bt", "    if true then return false end\n    return age > bt"),
     ("no slow doubling for orders", "bt * (is_slow_province(region) and 2 or 1) + 1", "bt + 1"),
+    # layouts from roles
+    ("layouts: previous lists used instead of derived", "    LAYOUT_CAPITAL, LAYOUT_MINOR, LAYOUT_SLOW_MINOR = layouts.capital, layouts.minor, layouts.slow_minor", "    LAYOUT_CAPITAL, LAYOUT_MINOR, LAYOUT_SLOW_MINOR = rules.previous_capital, rules.previous_minor, rules.previous_slow_minor"),
+    ("layouts: comparison always says same", "        elseif previous and same_list(derived, previous) then", "        elseif previous then"),
+    ("layouts: override ignored", "            if override then\n                out[#out + 1] = override\n            elseif", "            if false then\n            elseif"),
+    ("layouts: report not repeated per turn", '        trace("work starting")\n        for _, line in ipairs(layout_report) do trace(line) end\n', '        trace("work starting")\n'),
     ("cancelled orders not forgotten", '        forget_orders(rname, key, "cancelled")\n', ""),
     ("finished orders not forgotten", '        forget_orders(rname, key, "finished")\n', ""),
     ("forget_orders ignores the region", 'if p.target == key and string.sub(id, 1, #head) == head then', 'if p.target == key then'),

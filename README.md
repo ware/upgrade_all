@@ -110,7 +110,7 @@ them, rebuild, and repack. The ones you're most likely to touch:
 ### Changing the build order
 
 What gets built, and in what order, is the `CULTURE_RULES` table just below
-`CONFIG` in `src/engine.lua`. Each culture has three lists:
+`CONFIG` in `src/engine.lua`. Each culture has three lists of **roles**:
 
 | List | Used for |
 |---|---|
@@ -118,22 +118,52 @@ What gets built, and in what order, is the `CULTURE_RULES` table just below
 | `minor` | Other settlements |
 | `slow_minor` | Other settlements in slow-build climates (uninhabitable / unpleasant for the culture) |
 
-Each entry is a building *chain* key without its level suffix
-(`wh2_main_hef_order`, not `wh2_main_hef_order_2`); the mod builds level 1
-and upgrades from there. The order is the priority: the first entry gets the
-first free slot. Two placeholders are resolved per settlement: `RESOURCE`
-becomes the building for whatever resource that settlement has (or is skipped
-if it has none), and `LANDMARK` becomes the settlement's landmark from the
-game data (or the `landmarks` override). Anything already standing that isn't
-in the list is demolished to make room, subject to the exceptions under
-"Demolition" above.
+A role says what a slot is for; the game data says which building chain fills
+it for your culture. The roles, and what they resolve to for the two elves:
 
-To change the order: edit the list, run `python3 run_tests.py` (the layout
-tests, e.g. "Capital layout in order", pin the current order and will tell
-you what they expect), update those tests to the new order, then
-`python3 build.py --install`. Keys from another culture are refused by the
-crash guard, never queued, so a typo there shows up in the trace as
-`Refusing key from another culture` rather than as a crash.
+| Role | High Elves | Dark Elves |
+|---|---|---|
+| `growth` | Homestead | Dark Elf Manors |
+| `order` | Plaza | Torture Posts |
+| `income2` | Elven Gardens | Slave Pens |
+| `walls_major` | Stone Walls | Slave Gate |
+| `industry` | Elven Craftsman | Artisan's House |
+| `explore` | City Tunnels | City Tunnels |
+| `trade` | Elven Embassy | Black Roads |
+| `walls_minor` | Watchtower | Watchtowers |
+| `worship` | Shrine of Asuryan | Altar of Khaine |
+| `wizards` | Archive | Sorceress' Abode |
+| `special` | Dragon's Lair | (lord-specific; not used) |
+
+The mapping comes from the game's own `building_superchain` column (every
+race uses the same superchain keys) and is generated into `UA_DATA.roles` by
+`tools/gen_data.py`; the `ROLES` table there is where a role is defined. Two
+placeholders are resolved per settlement: `RESOURCE` becomes the building for
+whatever resource that settlement has (or is skipped if it has none), and
+`LANDMARK` becomes the settlement's landmark from the game data (or the
+`landmarks` override). The order is the priority: the first entry gets the
+first free slot. Anything already standing that isn't in the list is
+demolished to make room, subject to the exceptions under "Demolition" above.
+
+To change the order, reorder the roles. To change which chain fills a role
+without touching the data, set `roles_override` in `CONFIG`, e.g.
+`roles_override = { wizards = "wh2_main_hef_mages" }`. Then run
+`python3 run_tests.py` (the layout tests pin the current order and will tell
+you what they expect), update those tests, and `python3 build.py --install`.
+
+Every campaign load, and every turn, the trace records the lists in force and
+whether they match the hand-written lists the mod used before roles existed
+(`previous_*` in `CULTURE_RULES`):
+
+```
+layout capital: derived from roles, same as before (wh2_main_hef_farm, ...)
+layout capital CHANGED: now ...; before ...
+layout capital: data has no chain for wizards; using the previous list
+```
+
+Keys from another culture are refused by the crash guard, never queued, so a
+typo there shows up in the trace as `Refusing key from another culture`
+rather than as a crash.
 
 ### Log files
 

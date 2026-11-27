@@ -251,7 +251,7 @@ fully testable in the harness) and the UI last; the UI is the risky part
 (see Lessons) and should start as up/down buttons per row, not drag-and-drop.
 Shares the file mechanism with C1, so do C1's override file first.
 
-### C3. Other cultures — `researched; design agreed, not started`
+### C3. Other cultures — `prerequisites done; pilot culture not started`
 Architecture is culture-generic; adding one is a layout, a tag, and a real
 test campaign. Ryan has ~1,000 hours in HE/DE and little in the rest, so
 validation by play is not available for most cultures.
@@ -305,9 +305,26 @@ keys resolve) → a few turns on a throwaway campaign → enabled. The last two
 steps are the ones Ryan can't do for every culture; once published, the
 Contributing section invites players of that culture to do them.
 
-**Decision:** C3 is approved as a direction. Start with prerequisites 1–2
-(no behaviour change for HE/DE; the validation test is the deliverable),
-then one pilot culture Ryan is willing to play a few turns of (Empire or
+**Decision:** C3 is approved as a direction. Prerequisites 1–2 shipped
+2026-11-27:
+- `gen_data.py` emits `UA_DATA.roles` (culture → role → chains) for 25
+  cultures; uppercase race names added to `OTHER_CODES`, `CULTURE_WORDS`
+  and the engine's `CULTURE_TAGS`. Side effect: eight Dwarf/Greenskin/
+  Norscan/Vampire keys left `landmark_candidates`/`landmark_ok` (never
+  pickable anyway thanks to culture rows; now not even listed).
+- `CULTURE_RULES.capital/minor/slow_minor` are role sequences; the old
+  chain lists are kept as `previous_*` for comparison only. The derived
+  lists are what builds.
+- **Trace, at load and every turn:** `layout <which>: derived from roles,
+  same as before (...)`, or `layout <which> CHANGED: now ...; before ...`,
+  or `layout <which>: data has no chain for <role>; using the previous
+  list`. Plus `; more than one chain for <role> (...)` when ambiguous.
+  **After Ryan has played a while, read the trace for any CHANGED line and
+  explain it.**
+- Tests: derived HE and DE lists equal the previous lists verbatim; report
+  repeats per turn; `roles_override` changes the list, logs CHANGED with
+  before/after, and is what gets built. All 176 pass; 80 mutations caught.
+Next: one pilot culture Ryan is willing to play a few turns of (Empire or
 Lizardmen: standard model, full coverage). Not scheduled yet.
 
 ### C4. Cultures that don't fit the settlement model — `open, to work out`

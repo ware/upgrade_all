@@ -44,6 +44,9 @@ local CONFIG = {
     max_log_lines_per_turn = 20000, -- trace file limit; resets every turn
     initial_cost_guess  = 1500,  -- assumed cost until a real one has been seen
     pending_timeout     = 15,    -- turns to wait on a queued building before retrying that slot
+    -- Layout role -> building chain, overriding what the game data picks for
+    -- your culture (e.g. { wizards = "wh2_main_hef_mages" }). See CULTURE_RULES.
+    roles_override      = {},
     -- Each turn's summary is written to upgrade_all_summary.txt, and shown in a
     -- popup at the end of End Turn. Set popup = false if the popup causes trouble.
     popup               = true,
@@ -155,14 +158,29 @@ local function underscores_to_spaces(text)
     return table.concat(out)
 end
 
--- Rules for each culture the mod builds for. Layouts: "RESOURCE" and
--- "LANDMARK" are resolved per region. `tag` is the culture's word in building
--- keys ("_hef_"), which the crash guard requires as a whole word.
+-- Rules for each culture the mod builds for.
+--
+-- Layouts are sequences of *roles* (capital, minor, slow_minor). A role names
+-- what a slot is for; which building chain fills it comes from the game data
+-- (UA_DATA.roles, derived from building_superchain), so the same priorities
+-- apply to any culture whose chains the data knows. "RESOURCE" and "LANDMARK"
+-- are resolved per region. The role order: grow, pacify, earn, defend,
+-- resource, industry, landmark, explore, then the culture's own specials.
+--
+-- previous_* are the hand-written chain lists the mod used before roles. They
+-- are not used to build; they are compared with the derived lists at load and
+-- every turn, and the trace says whether anything differs, so a change in
+-- behaviour can be traced to the data. `tag` is the culture's word in
+-- building keys ("_hef_"), which the crash guard requires as a whole word.
 local CULTURE_RULES = {
     wh2_main_hef_high_elves = {
         tag = "hef", name = "High Elves", adj = "High Elf",
         farm = "wh2_main_hef_farm",                                  -- Homestead
-        capital = { "wh2_main_hef_farm",                             -- Homestead
+        capital = { "growth", "order", "income2", "walls_major", "RESOURCE", "industry", "LANDMARK",
+                    "explore", "trade", "special" },
+        minor = { "growth", "industry", "RESOURCE", "walls_minor", "explore" },
+        slow_minor = { "growth", "explore", "RESOURCE", "walls_minor", "industry" },
+        previous_capital = { "wh2_main_hef_farm",                    -- Homestead
                     "wh2_main_hef_order",                            -- Plaza
                     "wh2_main_hef_court",                            -- Elven Gardens
                     "wh2_main_hef_defence_major",                    -- Stone Walls
@@ -172,10 +190,10 @@ local CULTURE_RULES = {
                     "wh2_main_foreign_slot_discovery_hef",           -- City Tunnels
                     "wh2_main_hef_embassy",                          -- Elven Embassy
                     "wh2_main_hef_dragons" },                        -- Dragon's Lair
-        minor = { "wh2_main_hef_farm", "wh2_main_hef_industry", "RESOURCE",
+        previous_minor = { "wh2_main_hef_farm", "wh2_main_hef_industry", "RESOURCE",
                   "wh2_main_hef_defence_minor",                      -- Watchtower
                   "wh2_main_foreign_slot_discovery_hef" },
-        slow_minor = { "wh2_main_hef_farm", "wh2_main_foreign_slot_discovery_hef", "RESOURCE",
+        previous_slow_minor = { "wh2_main_hef_farm", "wh2_main_foreign_slot_discovery_hef", "RESOURCE",
                        "wh2_main_hef_defence_minor", "wh2_main_hef_industry" },
         tribute_key = CONFIG.phoenix_tribute_key, tribute_name = "Tribute to the Phoenix King",
         banish_key = CONFIG.banish_corruption_key,
@@ -184,7 +202,11 @@ local CULTURE_RULES = {
     wh2_main_def_dark_elves = {
         tag = "def", name = "Dark Elves", adj = "Dark Elf",
         farm = "wh2_main_def_farm",                                  -- Dark Elf Manors
-        capital = { "wh2_main_def_farm",                             -- Dark Elf Manors
+        capital = { "growth", "order", "income2", "walls_major", "RESOURCE", "industry", "LANDMARK",
+                    "explore", "worship", "wizards" },
+        minor = { "growth", "industry", "RESOURCE", "walls_minor", "explore" },
+        slow_minor = { "growth", "explore", "RESOURCE", "walls_minor", "industry" },
+        previous_capital = { "wh2_main_def_farm",                    -- Dark Elf Manors
                     "wh2_main_def_order",                            -- Torture Posts
                     "wh2_main_def_slaves",                           -- Slave Pens
                     "wh2_main_def_defence_major",                    -- Slave Gate (walls)
@@ -194,10 +216,10 @@ local CULTURE_RULES = {
                     "wh2_main_foreign_slot_discovery_def",           -- City Tunnels
                     "wh2_main_def_worship",                          -- Altar of Khaine
                     "wh2_main_def_sorcery" },                        -- Sorceress' Abode
-        minor = { "wh2_main_def_farm", "wh2_main_def_industry", "RESOURCE",
+        previous_minor = { "wh2_main_def_farm", "wh2_main_def_industry", "RESOURCE",
                   "wh2_main_def_defence_minor",                      -- Watchtowers
                   "wh2_main_foreign_slot_discovery_def" },
-        slow_minor = { "wh2_main_def_farm", "wh2_main_foreign_slot_discovery_def", "RESOURCE",
+        previous_slow_minor = { "wh2_main_def_farm", "wh2_main_foreign_slot_discovery_def", "RESOURCE",
                        "wh2_main_def_defence_minor", "wh2_main_def_industry" },
         tribute_key = CONFIG.enforce_tribute_key, tribute_name = "Enforce Tribute Payments",
         banish_key = nil,
@@ -227,7 +249,10 @@ end
 -- Every race's tag (the same list as tools/gen_data.py). A key with none of
 -- these is culture-neutral: an "_other" landmark variant, a special port...
 local CULTURE_TAGS = { "hef", "def", "dwf", "nor", "emp", "grn", "vmp", "tmb", "skv", "lzd", "wef", "brt", "chs",
-                       "kho", "nur", "sla", "tze", "dae", "ogr", "ksl", "cth", "chd", "cst", "woc", "nag", "bst", "kul", "den" }
+                       "kho", "nur", "sla", "tze", "dae", "ogr", "ksl", "cth", "chd", "cst", "woc", "nag", "bst", "kul", "den",
+                       -- the original game's races also key buildings by full name
+                       "EMPIRE", "DWARFS", "DWARF", "BRETONNIA", "VAMPIRES", "GREENSKINS", "GREENSKIN", "SAVAGEORC",
+                       "NORSCA", "CHAOS", "BEASTMEN", "HUMAN", "TEB" }
 local function any_culture_tag(key)
     for _, t in ipairs(CULTURE_TAGS) do if has_tag(key, t) then return true end end
     return false
@@ -548,11 +573,76 @@ local function build_resource_chains()
     table.sort(RESOURCE_CHAINS, function(a, b) return #a.name > #b.name end) -- longest name first
 end
 
+-- Turns a role sequence into a chain list for a culture. RESOURCE and
+-- LANDMARK pass through; a role the data has no chain for is dropped and
+-- named in `missing`; a role with several chains takes the first and is named
+-- in `ambiguous`. CONFIG.roles_override wins over the data.
+local function resolve_layout(culture, roles)
+    local table_for = (UA_DATA.roles and UA_DATA.roles[culture]) or {}
+    local out, missing, ambiguous = {}, {}, {}
+    for _, role in ipairs(roles) do
+        if role == "RESOURCE" or role == "LANDMARK" then
+            out[#out + 1] = role
+        else
+            local override = CONFIG.roles_override and CONFIG.roles_override[role]
+            local chains = table_for[role]
+            if override then
+                out[#out + 1] = override
+            elseif chains and chains[1] then
+                out[#out + 1] = chains[1]
+                if chains[2] then ambiguous[#ambiguous + 1] = role .. " (" .. table.concat(chains, ", ") .. ")" end
+            else
+                missing[#missing + 1] = role
+            end
+        end
+    end
+    return out, missing, ambiguous
+end
+
+local function same_list(a, b)
+    if #a ~= #b then return false end
+    for i = 1, #a do if a[i] ~= b[i] then return false end end
+    return true
+end
+
+-- One line per layout saying whether the derived list matches the previous
+-- hand-written one; written to the trace at load and once per turn so the
+-- trace always shows which layouts were in force.
+local layout_report = {}
+
+local function derive_layouts(rules)
+    local culture = nil
+    for key, r in pairs(CULTURE_RULES) do if r == rules then culture = key end end
+    layout_report = {}
+    local result = {}
+    for _, which in ipairs({ "capital", "minor", "slow_minor" }) do
+        local derived, missing, ambiguous = resolve_layout(culture, rules[which])
+        local previous = rules["previous_" .. which]
+        local line
+        if #missing > 0 and previous then
+            -- the data can't fill every role: build from the previous list and say so
+            derived = previous
+            line = string.format("layout %s: data has no chain for %s; using the previous list", which, table.concat(missing, ", "))
+        elseif previous and same_list(derived, previous) then
+            line = string.format("layout %s: derived from roles, same as before (%s)", which, table.concat(derived, ", "))
+        elseif previous then
+            line = string.format("layout %s CHANGED: now %s; before %s", which, table.concat(derived, ", "), table.concat(previous, ", "))
+        else
+            line = string.format("layout %s: derived from roles (%s)", which, table.concat(derived, ", "))
+        end
+        if #ambiguous > 0 then line = line .. "; more than one chain for " .. table.concat(ambiguous, "; ") end
+        layout_report[#layout_report + 1] = line
+        result[which] = derived
+    end
+    return result
+end
+
 -- Switches every culture-specific rule over to the given culture's.
 local function use_rules(rules)
     RULES = rules
     FARM = rules.farm
-    LAYOUT_CAPITAL, LAYOUT_MINOR, LAYOUT_SLOW_MINOR = rules.capital, rules.minor, rules.slow_minor
+    local layouts = derive_layouts(rules)
+    LAYOUT_CAPITAL, LAYOUT_MINOR, LAYOUT_SLOW_MINOR = layouts.capital, layouts.minor, layouts.slow_minor
     PROTECTED = (rules.protect == "config") and CONFIG.protected_province or starting_province
     build_resource_chains()
 end
@@ -1888,6 +1978,7 @@ cm:add_first_tick_callback(function()
     end
     use_rules(rules)
     trace("rules: " .. rules.name)
+    for _, line in ipairs(layout_report) do trace(line) end
     listen_for_order_signals()
 
     local function is_player(c) local f = c:faction(); return f:is_human() and f:name() == player end
@@ -1896,6 +1987,7 @@ cm:add_first_tick_callback(function()
         trace_lines = 0
         for k in pairs(slow_cache) do slow_cache[k] = nil end
         trace("work starting")
+        for _, line in ipairs(layout_report) do trace(line) end
         if CONFIG.test_mode then
             local ok, err = pcall(run_test_mode_staged, fkey)
             if not ok then write_summary("Upgrade All test mode error:\n" .. tostring(err)) end

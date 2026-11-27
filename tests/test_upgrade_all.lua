@@ -949,6 +949,13 @@ test("An issued report from an earlier order does not vouch for a later one", fu
     assert_in(W.trace_file, "wh2_main_hef_farm_1 refused by the game")
 end)
 
+test("Until the game has ever reported an issued order, the treasury alone is trusted without comment", function()
+    new_world({ mkregion("moon", "p", { main = MAXED_MINOR, buildings = { false } }) })
+    load(); end_turn()
+    eq(joined("moon"), "wh2_main_hef_farm_1")
+    assert_not_in(W.trace_file, "reported no issued order")
+end)
+
 test("A charge with no issued event is still an order, and noted", function()
     new_world({ mkregion("moon", "p", { main = MAXED_MINOR, buildings = { false } }) })
     load()
@@ -1097,7 +1104,7 @@ test("detailed_trace = true brings the reading lines back; the default is a frac
     for _, back in ipairs({ "reading slots in", "reading province of region", "reading commandment in", "queueing " }) do
         assert_in(W.trace_file, back)
     end
-    assert(quiet * 4 < loud, quiet .. " vs " .. loud)
+    assert(quiet * 3 < loud, quiet .. " vs " .. loud)
 end)
 
 test("The trace stops at its per-turn limit and starts again next turn", function()
@@ -1403,6 +1410,52 @@ test("Dark Elf minor layout: Manors, Artisan's House, resource, Watchtowers, Tun
     load(); end_turn()
     eq(joined("mn"), "wh2_main_def_farm_1,wh2_main_def_industry_1,wh2_main_def_resource_marble_1,"
         .. "wh2_main_def_defence_minor_1,wh2_main_foreign_slot_discovery_def_1")
+end)
+
+---------------------------------------------------------------------------
+-- Layouts derived from roles (C3): must equal the hand-written lists
+---------------------------------------------------------------------------
+local HEF_CAPITAL = "wh2_main_hef_farm, wh2_main_hef_order, wh2_main_hef_court, wh2_main_hef_defence_major, RESOURCE, "
+    .. "wh2_main_hef_industry, LANDMARK, wh2_main_foreign_slot_discovery_hef, wh2_main_hef_embassy, wh2_main_hef_dragons"
+local HEF_MINOR = "wh2_main_hef_farm, wh2_main_hef_industry, RESOURCE, wh2_main_hef_defence_minor, wh2_main_foreign_slot_discovery_hef"
+local HEF_SLOW = "wh2_main_hef_farm, wh2_main_foreign_slot_discovery_hef, RESOURCE, wh2_main_hef_defence_minor, wh2_main_hef_industry"
+local DEF_CAPITAL = "wh2_main_def_farm, wh2_main_def_order, wh2_main_def_slaves, wh2_main_def_defence_major, RESOURCE, "
+    .. "wh2_main_def_industry, LANDMARK, wh2_main_foreign_slot_discovery_def, wh2_main_def_worship, wh2_main_def_sorcery"
+local DEF_MINOR = "wh2_main_def_farm, wh2_main_def_industry, RESOURCE, wh2_main_def_defence_minor, wh2_main_foreign_slot_discovery_def"
+local DEF_SLOW = "wh2_main_def_farm, wh2_main_foreign_slot_discovery_def, RESOURCE, wh2_main_def_defence_minor, wh2_main_def_industry"
+
+test("High Elf layouts derived from the data equal the previous hand-written lists, and the trace says so", function()
+    new_world({ mkregion("mn", "p", { main = MAXED_MINOR, buildings = { false } }) })
+    load()
+    assert_in(W.trace_file, "layout capital: derived from roles, same as before (" .. HEF_CAPITAL .. ")")
+    assert_in(W.trace_file, "layout minor: derived from roles, same as before (" .. HEF_MINOR .. ")")
+    assert_in(W.trace_file, "layout slow_minor: derived from roles, same as before (" .. HEF_SLOW .. ")")
+    assert_not_in(W.trace_file, "CHANGED")
+    assert_not_in(W.trace_file, "more than one chain")
+end)
+
+test("Dark Elf layouts derived from the data equal the previous hand-written lists", function()
+    def_world({ mkregion("mn", "p", { main = DEF_MINOR_MAX, buildings = { false } }) })
+    load()
+    assert_in(W.trace_file, "layout capital: derived from roles, same as before (" .. DEF_CAPITAL .. ")")
+    assert_in(W.trace_file, "layout minor: derived from roles, same as before (" .. DEF_MINOR .. ")")
+    assert_in(W.trace_file, "layout slow_minor: derived from roles, same as before (" .. DEF_SLOW .. ")")
+    assert_not_in(W.trace_file, "CHANGED")
+end)
+
+test("The layout report is repeated every turn, so it is always in the trimmed trace", function()
+    new_world({ mkregion("mn", "p", { main = MAXED_MINOR, buildings = { false } }) })
+    load(); end_turn(); end_turn()
+    eq(H.count(W.trace_file, "layout capital: derived from roles"), 3, "load + 2 turns")
+end)
+
+test("A roles_override changes the derived layout, the trace says CHANGED with before and after, and the override is built", function()
+    new_world({ mkregion("cap", "p", { capital = true, gdp = 900, main = MAXED_MAJOR, buildings = { false, false } }) })
+    load({ roles_override = { order = "wh2_main_hef_mages" } }); end_turn()
+    assert_in(W.trace_file, "layout capital CHANGED: now wh2_main_hef_farm, wh2_main_hef_mages, wh2_main_hef_court")
+    assert_in(W.trace_file, "; before " .. HEF_CAPITAL)
+    assert_in(W.trace_file, "layout minor: derived from roles, same as before")
+    eq(joined("cap"), "wh2_main_hef_mages_1,wh2_main_hef_court_1")  -- fully grown: no Homestead
 end)
 
 test("Dark Elf slow-build minors swap Artisan's House and City Tunnels", function()
