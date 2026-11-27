@@ -156,6 +156,14 @@ The data in `exports/` is from v9.0.5. After a patch:
 - A timer started from inside another timer never fires.
 - UI: no `LockPriority` / `RegisterTopMost`, never reuse a dying component's name.
 
+A note on the evidence. The `string.find` crash and the other-culture crash
+were reproduced on a fresh campaign. The turn-start, nested-timer and UI
+rules were worked out during a crash hunt that mostly ran on a save the game
+flagged as from an older version, so an old save may have been part of what
+we were chasing. The rules are kept and enforced regardless: each one
+removes a way the mod could take the game down, and none of them costs the
+mod anything.
+
 ## How this was made
 
 All of the code here — the mod, the data generator, the test harness and the

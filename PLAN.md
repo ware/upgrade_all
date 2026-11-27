@@ -116,7 +116,7 @@ reminder was right and one-settlement provinces need no exception.
 
 ## B. Things the Opus transcript changes
 
-### B1. The "lessons" rest on thinner evidence than the README implies — `open`
+### B1. The "lessons" rest on thinner evidence than the README implies — `done`
 
 Most of the crash hunt ran on a save the game flagged as from an older
 version; Opus concluded the save was the underlying problem. Rules derived
@@ -131,10 +131,11 @@ diagnostic call crashed step 1), so it stands.
 The harness enforces all of them. Keeping them costs nothing but constrains
 contributors; the README presents them as established.
 
-**Question:** keep the unproven rules enforced (recommended), or relax them
-and let a future trace decide? Either way, reword the README to say where
-each came from.
-**Decision:**
+**Decision:** keep every rule enforced. Ryan: "we were chasing the wrong
+problem at the time, but all of the code related to hardening against those
+issues is still valuable." README "Lessons" section now says which rules
+were reproduced on a fresh campaign and which came from the old-save hunt
+(this also covers E1). Status: `done`.
 
 ### B2. Two demolition guardrails were lost in the rebuild — `open`
 
@@ -240,7 +241,7 @@ checklist in the README: load a save, End Turn, check the trace for
 
 ## E. README
 
-### E1. Honesty pass on the lessons — depends on B1
+### E1. Honesty pass on the lessons — `done` with B1
 ### E2. Fix the log location — depends on B4
 ### E3. Windows status — depends on B5
 ### E4. "Known limitations" section — `open`
