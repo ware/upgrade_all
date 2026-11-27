@@ -333,8 +333,42 @@ Contributing section invites players of that culture to do them.
 - Tests: derived HE and DE lists equal the previous lists verbatim; report
   repeats per turn; `roles_override` changes the list, logs CHANGED with
   before/after, and is what gets built. All 176 pass; 80 mutations caught.
-Next: one pilot culture Ryan is willing to play a few turns of (Empire or
-Lizardmen: standard model, full coverage). Not scheduled yet.
+**Plan to enable every culture that fits the HE/DE model (2026-11-27):**
+
+*Phase 1 — N-culture engine, no new culture.* `RULES.tag` → `RULES.words`
+(Empire is both `emp` and `EMPIRE`); `is_safe_key`, own-chain upgrade,
+resource-chain discovery and the harness crash simulation use the list.
+`gen_data.py` emits `first/chain/tier` for an explicit `ENABLED_CULTURES`
+list (data block grows per culture; D2). Main-settlement chains from data.
+A `standard_culture{}` constructor so an entry is ~6 lines. Harness gains a
+synthetic culture built from real Empire keys; crash-guard tests run
+against it. Deliverable: HE/DE `same as before`; engine ready. ~1 day.
+
+*Phase 2 — offline safety gate per culture, in CI.* Generated test: every
+layout chain resolves to a level-1 key; passes the crash guard for its own
+culture and fails it for every other; no ambiguous role; main-settlement
+chain found; walls for both settlement sizes. ~half a day.
+
+*Phase 3 — waves.*
+- Wave 1 (standard, clean, gold-priced): Empire, Dwarfs, Bretonnia,
+  Vampire Counts, Lizardmen, Tomb Kings. HE role order; tail = whichever of
+  trade/worship/wizards/special exist. Commandment reminders OFF to start
+  (per-culture edict keys added as confirmed). `protect = "start"`.
+- Wave 2 (one rule each): Kislev (two wall chains), Ogre Kingdoms (camps),
+  Skaven (settlement tiers cost food, not gold — needs the issued event),
+  Cathay (yin/yang tie-break or `roles_override`).
+- Wave 3 → C4: monogods (`dae_*` duplicates), Chaos Dwarfs, Norsca,
+  Greenskins.
+
+*Phase 4 — in-game, per culture, ~20 min:* new campaign; `test_mode` one
+End Turn; then 5 real turns; send trace. Pass: no errors/crash, every
+placed building in the layout, sane summary. README gets a status table
+(culture, wave, verified by, game version); a culture is "enabled" only
+after this. Pilots: Empire and Lizardmen through Phase 4 before the other
+four.
+
+**Open for Ryan:** reminders-off for new cultures to start? Pilots first
+(recommended) or all of wave 1 at once?
 
 ### C4. Cultures that don't fit the settlement model — `open, to work out`
 The layout approach assumes: regions with a main slot and secondary slots,
