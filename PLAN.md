@@ -11,14 +11,22 @@ Status key: `open` · `decided` · `in progress` · `done` · `dropped`
 
 ## A. Things the trace shows
 
-### A1. ~90 orders refused by the game every End Turn — `in progress` (steps 1–4 done, 5 pending)
+### A1. ~90 orders refused by the game every End Turn — `done`
 
 Done 26 Nov: every refused order is named once in the trace; refused
 `slot|key` pairs are not asked for again within the turn; the data's
 main-settlement level requirement rules out placements and upgrades before
 the game is asked; the summary reads "Waiting on settlement level: N" /
-"Refused by the game (growth, tech...): M". Next: one turn of play to see the
-real mix, then decide on step 5.
+"Refused by the game (growth, tech...): M".
+
+Result, turn 238: **82 waiting on settlement level, 5 refused by the game**,
+and all 5 are settlement upgrades (`major_5` ×4, Zvorak `minor_3`) blocked on
+growth. No technology refusals this turn, so **step 5 is deferred**: it only
+shows that none of the buildings eligible *this turn* were tech-gated, not
+that the tech tree has no building gates (Ryan has not researched most of
+it). The signal to revisit is a `refused by the game` trace line for a
+non-settlement building. The remaining 5 per turn are harmless; retrying
+them less often belongs with A2.
 
 Latest run (turn 237): **87 refused** in the final pass. The loop stops when a
 pass places nothing new, so with a trainer it runs 2 passes (the trace shows
@@ -54,18 +62,33 @@ Proposal, in order:
    remaining refusals are growth-gated capitals, the answer is "retry every
    few turns" rather than a new API.
 
-**Decision:** 1–4 approved and shipped. Step 5 after the next trace.
+**Decision:** 1–4 approved and shipped. Step 5 deferred until a tech-gated
+refusal appears in the trace.
 
-### A2. Main-building orders that "never appeared" are held too long — `open`
+### A2. Main-building orders that "never appeared" are held too long — `done, awaiting in-game confirmation`
 
 `vulture_mountain` and `tlaqua` held `settlement_major_5` orders from turn
-223 for ten turns, then were refused immediately on retry. The pending
-mechanism exists because the game won't say whether a slot is under
-construction, but a settlement's *level* is visible: if the main building
-hasn't changed level N turns after an order, the order is gone and the slot
-could be retried sooner.
+223 for ten turns, then were refused immediately on retry. Ryan's memory:
+the pending mechanism was added because, rarely, an order was never really
+accepted. Listening to the game's events was never tried before.
 
-**Decision:**
+**Decision:** keep the turn-count timer but make it the fallback. Shipped:
+1. Game events (CA docs: `BuildingCompleted`, `RegionBuildingCancelled`,
+   `BuildingConstructionIssued`, `BuildingConstructionIssuedByPlayer`).
+   Completed/cancelled clear the order at once; "issued" confirms an order
+   was accepted (treasury drop is still accepted on its own, and the trace
+   notes when the two disagree, e.g. trainer gold landing mid-call).
+2. `slot:is_working()` (also in the CA docs): an idle slot that still lacks
+   its ordered building has lost the order; retried next turn.
+3. Timer grace tightened from build time + 2 to + 1; `pending_timeout` cap
+   unchanged.
+Every new game call is in `pcall`; one that fails is switched off for the
+session with a single `game signal ... unavailable` trace line.
+
+**To check in the next trace:** whether `issued`/`finished`/`cancelled
+(game event)` lines appear, whether any `game signal ... unavailable` line
+appears, and whether any "charged ... but the game reported no issued order"
+line appears (that would mean script orders don't raise the issued event).
 
 ### A3. Commandment reminder in one-settlement provinces — `open`
 

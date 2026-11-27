@@ -810,14 +810,16 @@ end)
 ---------------------------------------------------------------------------
 -- Orders that never appear (Monument of the Moon), and why slots stay empty
 ---------------------------------------------------------------------------
-test("Monument of the Moon: a Homestead that never appeared is ordered again after its build time + 2", function()
+-- Timer fallback: the slot still says it is working (the game never told us
+-- otherwise), so only the turn count can give the order up.
+test("Monument of the Moon: a Homestead that never appeared is ordered again after its build time + 1", function()
     new_world({ mkregion("moon", "p", { main = MAXED_MINOR, buildings = { false } }) })
     load(); end_turn()                          -- turn 1: ordered (1-turn build)
     eq(joined("moon"), "wh2_main_hef_farm_1")
     W.queued = {}
-    end_turn(); end_turn(); end_turn()          -- up to 3 turns old: still waiting
+    end_turn(); end_turn()                      -- up to 2 turns old: still waiting
     eq(#W.queued, 0, "re-ordered too early")
-    end_turn()                                  -- 4 turns old: overdue
+    end_turn()                                  -- 3 turns old: overdue
     eq(joined("moon"), "wh2_main_hef_farm_1", "not re-ordered")
     assert_in(W.trace_file, "never appeared; trying the slot again")
 end)
@@ -826,10 +828,134 @@ test("Slow-build climates get double the time before an order is given up on", f
     new_world({ mkregion("moon", "p", { main = MAXED_MINOR, buildings = { false }, bundles = { wh2_main_climate_uninhabitable = true } }) })
     load(); end_turn()
     W.queued = {}
-    for _ = 1, 4 do end_turn() end              -- 1 x 2 + 2 = 4 turns: still waiting
+    for _ = 1, 3 do end_turn() end              -- 1 x 2 + 1 = 3 turns: still waiting
     eq(#W.queued, 0, "re-ordered too early")
     end_turn()
     eq(#W.queued, 1, "not re-ordered")
+end)
+
+---------------------------------------------------------------------------
+-- What the game says about orders comes before the timer (A2)
+---------------------------------------------------------------------------
+test("An order the game cancels is retried next turn, not after the timer", function()
+    new_world({ mkregion("cap", "p", { capital = true, main = "wh2_main_hef_settlement_major_4", buildings = {} }) })
+    load(); end_turn()                          -- level 5: 7-turn build
+    eq(joined("cap"), "wh2_main_hef_settlement_major_5")
+    W.queued = {}
+    H.cancel("cap", 0)
+    assert_in(W.trace_file, "cap#0: wh2_main_hef_settlement_major_5 cancelled (game event)")
+    end_turn()
+    eq(joined("cap"), "wh2_main_hef_settlement_major_5", "not re-ordered after the cancel")
+    assert_not_in(W.trace_file, "never appeared")
+end)
+
+test("A finished building reported by the game clears its order at once", function()
+    new_world({ mkregion("moon", "p", { main = MAXED_MINOR, buildings = { false } }) })
+    load(); end_turn()
+    W.queued = {}
+    H.complete("moon", 1)
+    assert_in(W.trace_file, "moon#1: wh2_main_hef_farm_1 finished (game event)")
+    local saved = H.save()
+    eq(saved["upgrade_all_v2_pending"], "", "order still remembered")
+    end_turn()
+    eq(joined("moon"), "wh2_main_hef_farm_2")
+end)
+
+test("An order that silently vanished is retried as soon as the slot is seen idle", function()
+    new_world({ mkregion("cap", "p", { capital = true, main = "wh2_main_hef_settlement_major_4", buildings = {} }) })
+    load(); end_turn()
+    W.queued = {}
+    H.lose("cap", 0)
+    end_turn()
+    eq(joined("cap"), "wh2_main_hef_settlement_major_5", "not re-ordered from the idle slot")
+    assert_in(W.trace_file, "the slot is idle; the order is gone, trying the slot again")
+end)
+
+test("A slot the game says is still working is left alone until the timer", function()
+    new_world({ mkregion("cap", "p", { capital = true, main = "wh2_main_hef_settlement_major_4", buildings = {} }) })
+    load(); end_turn()
+    W.queued = {}
+    for _ = 1, 8 do end_turn() end              -- up to 8 turns old: 7 + 1 grace
+    eq(#W.queued, 0, "re-ordered while the slot was working")
+    end_turn()
+    eq(#W.queued, 1, "timer fallback did not fire")
+end)
+
+test("Without slot:is_working the timer still works and the trace says so once", function()
+    new_world({ mkregion("moon", "p", { main = MAXED_MINOR, buildings = { false } }),
+                mkregion("sun", "q", { main = MAXED_MINOR, buildings = { false } }) })
+    for _, r in ipairs(W.regions) do for _, s in ipairs(r.slots) do s.is_working = nil end end
+    load(); end_turn()
+    W.queued = {}
+    end_turn(); end_turn()
+    eq(#W.queued, 0, "re-ordered too early")
+    end_turn()
+    eq(#W.queued, 2, "timer fallback did not fire")
+    eq(H.count(W.trace_file, "game signal slot:is_working unavailable"), 1)
+end)
+
+test("Events for a region with no orders, or a broken context, change nothing", function()
+    new_world({ mkregion("moon", "p", { main = MAXED_MINOR, buildings = { false } }) })
+    load(); end_turn()
+    W.queued = {}
+    H.fire_ctx("BuildingCompleted", { building = function() error("no building") end })
+    H.fire_ctx("RegionBuildingCancelled", { key = function() return "wh2_main_hef_farm_1" end,
+        slot = function() return { region = function() return H.region("nowhere") end } end })
+    assert_in(W.trace_file, "game signal BuildingCompleted unavailable")
+    end_turn()
+    eq(#W.queued, 0, "order forgotten")
+end)
+
+test("When the game reports issued orders, a refusal is one it did not report", function()
+    new_world({ mkregion("moon", "p", { main = MAXED_MINOR, buildings = { false, false } }) }, 20000)
+    W.issued_events = true
+    W.invalid["wh2_main_hef_farm_1"] = true
+    load(); end_turn()
+    assert_in(W.trace_file, "wh2_main_hef_farm_1 refused by the game")
+    assert(not has(queued_in("moon"), "wh2_main_hef_farm_1"), "refused order was counted")
+    assert(#queued_in("moon") >= 1, "accepted orders were not counted")
+end)
+
+test("An order the game reports issued counts even if the treasury did not move (trainer gold)", function()
+    new_world({ mkregion("moon", "p", { main = MAXED_MINOR, buildings = { false } }) })
+    W.issued_events, W.free_orders = true, true
+    load(); end_turn()
+    eq(joined("moon"), "wh2_main_hef_farm_1")
+    assert_in(W.trace_file, "issued by the game but the treasury did not drop; trusting the game")
+    assert_not_in(W.trace_file, "refused by the game")
+    W.queued = {}
+    end_turn()
+    eq(#W.queued, 0, "order not remembered")
+end)
+
+test("A cancel in one region leaves the same order in another alone", function()
+    new_world({ mkregion("moon", "p", { main = MAXED_MINOR, buildings = { false } }),
+                mkregion("sun", "q", { main = MAXED_MINOR, buildings = { false } }) })
+    load(); end_turn()
+    W.queued = {}
+    H.cancel("moon", 1)
+    end_turn()
+    eq(joined("moon"), "wh2_main_hef_farm_1", "cancelled order not retried")
+    eq(#queued_in("sun"), 0, "sun's order was forgotten too")
+end)
+
+test("An issued report from an earlier order does not vouch for a later one", function()
+    new_world({ mkregion("moon", "p", { main = MAXED_MINOR, buildings = { false } }) }, 20000)
+    W.issued_events = true
+    W.invalid["wh2_main_hef_farm_1"] = true
+    load()
+    H.fire_ctx("BuildingConstructionIssued", { building_key = function() return "wh2_main_hef_farm_1" end })
+    end_turn()
+    assert_in(W.trace_file, "wh2_main_hef_farm_1 refused by the game")
+end)
+
+test("A charge with no issued event is still an order, and noted", function()
+    new_world({ mkregion("moon", "p", { main = MAXED_MINOR, buildings = { false } }) })
+    load()
+    H.fire_ctx("BuildingConstructionIssued", { building_key = function() return "something_you_built" end })
+    end_turn()
+    eq(joined("moon"), "wh2_main_hef_farm_1")
+    assert_in(W.trace_file, "charged 1000 gold but the game reported no issued order; trusting the treasury")
 end)
 
 test("A long upgrade isn't given up on while it could still be building", function()

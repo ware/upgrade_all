@@ -96,7 +96,7 @@ H.REAL_COST = {
 ---------------------------------------------------------------------------
 local function mkslot(region, index, kind, building, opts)
     opts = opts or {}
-    local s = { region = region, index = index, kind = kind, b = building or nil,
+    local s = { owner = region, index = index, kind = kind, b = building or nil,
                 active_ = opts.active ~= false, resource = opts.resource, template = opts.template }
     s.id = region.key .. "#" .. index
     function s:is_null_interface() return false end
@@ -117,6 +117,10 @@ local function mkslot(region, index, kind, building, opts)
     end
     function s:template_key() return self.template or "" end
     function s:resource_key() return self.resource or "" end
+    function s:region() return self.owner end
+    -- Under construction since the mod's order; H.complete/H.cancel/H.lose end it.
+    -- A test may set s.is_working = nil, as a game without the call would be.
+    function s:is_working() return self.working == true end
     return s
 end
 
@@ -389,8 +393,11 @@ local function install_globals()
             if string.sub(key, 1, #"wh2_dlc17_silent_sanctum_def_boost") == "wh2_dlc17_silent_sanctum_def_boost" then crash("queued " .. key) end
             W.attempts[#W.attempts + 1] = { slot = slot.id, key = key }  -- every order asked for, accepted or not
             if W.invalid[key] then return end -- the game refuses: nothing charged
-            W.treasury = W.treasury - W.cost(key)
-            W.queued[#W.queued + 1] = { slot = slot.id, key = key, region = slot.region.key }
+            if not W.free_orders then W.treasury = W.treasury - W.cost(key) end
+            W.queued[#W.queued + 1] = { slot = slot.id, key = key, region = slot.owner.key }
+            slot.working, slot.order = true, key
+            -- W.issued_events: the game announces the order, as the real one may
+            if W.issued_events then H.fire_ctx("BuildingConstructionIssued", { building_key = function() return key end }) end
         end,
         region_slot_instantly_dismantle_building = function(_, slot)
             if W.in_event == "FactionTurnStart" then W.crashes[#W.crashes + 1] = "demolished during FactionTurnStart" end
@@ -553,14 +560,46 @@ function H.reload(cfg)
 end
 
 function H.fire(ev, str)
-    local ctx = { faction = function() return W.faction end, string = str }
+    return H.fire_ctx(ev, { faction = function() return W.faction end, string = str })
+end
+
+-- Fires ev with an arbitrary context, as the game does for building events.
+function H.fire_ctx(ev, ctx)
+    local was = W.in_event
     W.in_event = ev
     local ls = {}
     for _, l in ipairs(W.listeners) do ls[#ls + 1] = l end
     for _, l in ipairs(ls) do
         if l.ev == ev and (l.cond == true or l.cond(ctx)) then trapped(l.cb, ctx) end
     end
-    W.in_event = nil
+    W.in_event = was
+end
+
+local function slot_at(region_key, index) return H.region(region_key).slots[index + 1] end
+
+-- The game finishes the building ordered in a slot (BuildingCompleted).
+function H.complete(region_key, index)
+    local s = slot_at(region_key, index)
+    s.b, s.working = s.order, false
+    local building = { name = function() return s.b end, region = function() return s.owner end }
+    H.fire_ctx("BuildingCompleted", { building = function() return building end,
+        garrison_residence = function() return { region = function() return s.owner end } end })
+end
+
+-- The order in a slot is cancelled (RegionBuildingCancelled), gold refunded.
+function H.cancel(region_key, index)
+    local s = slot_at(region_key, index)
+    local key = s.order
+    s.working, s.order = false, nil
+    W.treasury = W.treasury + W.cost(key)
+    H.fire_ctx("RegionBuildingCancelled", { slot = function() return s end,
+        key = function() return key end, chain = function() return "" end })
+end
+
+-- The order silently disappears: no event, the slot just sits idle.
+function H.lose(region_key, index)
+    local s = slot_at(region_key, index)
+    s.working, s.order = false, nil
 end
 
 function H.end_turn()

@@ -8076,18 +8076,111 @@ local function use_rules(rules)
 end
 use_rules(RULES)
 
--- The game doesn't tell scripts whether a slot is under construction, so the
--- mod remembers its own orders. An order counts as overdue (forgotten, so the
--- slot is tried again) once it is well past the building's own build time:
--- that time, doubled in slow-build climates, plus 2 turns' grace. Never longer
--- than pending_timeout; buildings with no known build time use pending_timeout.
+-- The mod remembers its own orders (pending). What the game says about them
+-- comes first; counting turns is the fallback:
+--   1. Game events. BuildingCompleted and RegionBuildingCancelled clear the
+--      order as soon as the building is finished or the order is dropped, so
+--      the slot is tried again next turn rather than many turns later.
+--      BuildingConstructionIssued(ByPlayer) confirms an order was accepted.
+--   2. The slot itself: slot:is_working() says whether anything is being
+--      built there. An idle slot that still lacks its ordered building has
+--      lost the order.
+--   3. The timer: an order counts as overdue once it is well past the
+--      building's own build time (doubled in slow-build climates, plus 1
+--      turn's grace), never longer than pending_timeout; buildings with no
+--      known build time use pending_timeout.
+-- Every game call in 1 and 2 is guarded: if the game lacks it, that signal is
+-- switched off for the session (noted once in the trace) and the rest carry on.
 local function order_overdue(p, region, turn)
     local age = turn - p.turn
     if age >= CONFIG.pending_timeout then return true end
     local t = UA_DATA.tier[p.target]
     local bt = t and t[4]
     if not bt or bt <= 0 then return false end
-    return age > bt * (is_slow_province(region) and 2 or 1) + 2
+    return age > bt * (is_slow_province(region) and 2 or 1) + 1
+end
+
+local signals = { slot_status = true, issued_seen = false, issued = {}, failed = {} }
+
+-- Did the game accept an order for key during the last queue call? nil when
+-- the game has never reported an issued order (the event may not fire for
+-- script orders), so the treasury is the only signal.
+local function issued_this_call(key)
+    if not signals.issued_seen then return nil end
+    return signals.issued[key] == true
+end
+
+local function signal_failed(what, err)
+    if signals.failed[what] then return end
+    signals.failed[what] = true
+    trace("game signal " .. what .. " unavailable (" .. tostring(err) .. "); falling back to the turn count")
+end
+
+-- Is the slot building something? nil when the game can't say.
+local function slot_working(slot)
+    if not signals.slot_status then return nil end
+    local ok, working = pcall(function() return slot:is_working() end)
+    if not ok or type(working) ~= "boolean" then
+        signals.slot_status = false
+        signal_failed("slot:is_working", ok and ("returned " .. type(working)) or working)
+        return nil
+    end
+    return working
+end
+
+-- Forgets every order for key in region rname (ids are "region#slot").
+local function forget_orders(rname, key, why)
+    if type(rname) ~= "string" or type(key) ~= "string" then return 0 end
+    local head, n = rname .. "#", 0
+    for id, p in pairs(pending) do
+        if p.target == key and string.sub(id, 1, #head) == head then
+            pending[id] = nil; n = n + 1
+            trace(id .. ": " .. key .. " " .. why .. " (game event)")
+        end
+    end
+    return n
+end
+
+local function region_name_from(fn)
+    local ok, name = pcall(function()
+        local r = fn()
+        if r and not r:is_null_interface() then return r:name() end
+    end)
+    if ok and type(name) == "string" then return name end
+    return nil
+end
+
+-- Listens for what the game says about buildings. Each listener does the
+-- least possible and fails quietly: the turn count still works without them.
+local function listen_for_order_signals()
+    local function guarded(name, fn)
+        core:add_listener("upgrade_all_" .. name, name, true, function(context)
+            local ok, err = pcall(fn, context)
+            if not ok then signal_failed(name, err) end
+        end, true)
+    end
+    guarded("BuildingConstructionIssued", function(context)
+        local key = context:building_key()
+        if type(key) == "string" and key ~= "" then signals.issued_seen = true; signals.issued[key] = true end
+    end)
+    guarded("BuildingConstructionIssuedByPlayer", function(context)
+        local b = context:building()
+        local key = type(b) == "string" and b or (b and b:name())
+        if type(key) == "string" and key ~= "" then signals.issued_seen = true; signals.issued[key] = true end
+    end)
+    guarded("BuildingCompleted", function(context)
+        local b = context:building()
+        local key = b:name()
+        local rname = region_name_from(function() return b:region() end)
+            or region_name_from(function() return context:garrison_residence():region() end)
+            or region_name_from(function() return context:garrison_residence():settlement_interface():region() end)
+        forget_orders(rname, key, "finished")
+    end)
+    guarded("RegionBuildingCancelled", function(context)
+        local key = context:key()
+        local rname = region_name_from(function() return context:slot():region() end)
+        forget_orders(rname, key, "cancelled")
+    end)
 end
 
 -- Gathers what we need about a region's slots in one pass.
@@ -8116,11 +8209,18 @@ local function inspect_region(region, turn)
                     current = slot:building():name()
                 end
                 local p = pending[id]
-                if p and current ~= p.target and order_overdue(p, region, turn) then
-                    log(id .. ": ordered " .. p.target .. " on turn " .. p.turn .. " but it never appeared; trying the slot again")
+                if p and current == p.target then
                     pending[id] = nil; p = nil
-                elseif p and current == p.target then
-                    pending[id] = nil; p = nil
+                elseif p then
+                    at(i, "is_working")
+                    local working = slot_working(slot)
+                    if working == false then
+                        log(id .. ": ordered " .. p.target .. " on turn " .. p.turn .. " but the slot is idle; the order is gone, trying the slot again")
+                        pending[id] = nil; p = nil
+                    elseif order_overdue(p, region, turn) then
+                        log(id .. ": ordered " .. p.target .. " on turn " .. p.turn .. " but it never appeared; trying the slot again")
+                        pending[id] = nil; p = nil
+                    end
                 end
                 if p then info.chains[chain_of(p.target)] = true end
                 if current then info.chains[chain_of(current)] = true end
@@ -8416,9 +8516,20 @@ local function run_turn(faction)
             return false
         end
         detail("queueing " .. key .. " at " .. entry.id)
+        signals.issued = {}
         cm:add_building_to_settlement_queue(entry.slot, key)
         local cost = before - cm:get_faction(fkey):treasury()
-        if cost <= 0 then
+        -- Accepted when the game says so (issued event), or failing that when
+        -- the treasury dropped. The two are compared in the trace so a
+        -- disagreement (a trainer topping up gold mid-call, say) is visible.
+        local issued = issued_this_call(key)
+        if issued == true and cost <= 0 then
+            trace(entry.id .. ": " .. key .. " issued by the game but the treasury did not drop; trusting the game")
+            cost = 0
+        elseif issued == false and cost > 0 then
+            trace(entry.id .. ": " .. key .. " charged " .. cost .. " gold but the game reported no issued order; trusting the treasury")
+        end
+        if cost <= 0 and issued ~= true then
             stats.refused = stats.refused + 1; stats.why = "refused by the game"
             stats.refused_orders[order_id] = true
             stats.refused_total = stats.refused_total + 1
@@ -9295,6 +9406,7 @@ cm:add_first_tick_callback(function()
     end
     use_rules(rules)
     trace("rules: " .. rules.name)
+    listen_for_order_signals()
 
     local function is_player(c) local f = c:faction(); return f:is_human() and f:name() == player end
 
