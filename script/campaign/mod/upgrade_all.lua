@@ -7766,15 +7766,10 @@ local function log(msg) if CONFIG.log and trace then trace(msg) end end
 -- Step-by-step reading lines: only with detailed_trace = true (for chasing a crash).
 local function detail(msg) if CONFIG.detailed_trace and trace then trace(msg) end end
 
--- Where the log files go: the game's working folder, plus, on a Mac, your home
--- folder (the Mac port didn't produce files in its working folder).
+-- Where the log files go: the game's working folder. On a Mac that is
+-- .../Total War WARHAMMER III/TotalWarhammer3Data/ inside the Steam library;
+-- on Windows, the game's install folder.
 local OUTPUT_DIRS = { "" }
-pcall(function()
-    local home = os.getenv("HOME")
-    if type(home) == "string" and string.sub(home, 1, 7) == "/Users/" then
-        OUTPUT_DIRS[#OUTPUT_DIRS + 1] = home .. "/"
-    end
-end)
 local function each_output(name, fn)
     for _, dir in ipairs(OUTPUT_DIRS) do pcall(fn, dir .. name) end
 end

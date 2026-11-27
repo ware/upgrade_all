@@ -164,7 +164,7 @@ agree). Revisit if a settings UI for CONFIG values is added: a gold floor is
 the obvious first setting to expose. **Bring this up again when Ryan asks
 about reordering his existing priorities.**
 
-### B4. Log file location is wrong in the README — `open`
+### B4. Log file location is wrong in the README — `done`
 
 Opus added `$HOME` because "the Mac version never produced files in its
 working folder." Today the game wrote only to
@@ -172,10 +172,12 @@ working folder." Today the game wrote only to
 Either the game's working directory changed between versions or the claim
 was wrong. The README's log-location paragraph is incorrect for this setup.
 
-**Question:** does `~/upgrade_all_trace.txt` ever get updated by the game
-now? If never, drop the `$HOME` path and fix the README; if it varies, keep
-both and document both. Check what Windows does before trimming.
-**Decision:**
+**Decision:** everything goes in the game's directory. The `$HOME` copy is
+removed from the engine; README gives the Mac path
+(`~/Library/Application Support/Steam/steamapps/common/Total War WARHAMMER III/TotalWarhammer3Data/`)
+and says Windows uses the install folder. Writing to `~` can be revisited if
+it ever matters. Stale `~/upgrade_all_*.txt` files from earlier builds can
+be deleted by hand.
 
 ### B5. Windows — `open`
 
@@ -247,7 +249,7 @@ checklist in the README: load a save, End Turn, check the trace for
 ## E. README
 
 ### E1. Honesty pass on the lessons — `done` with B1
-### E2. Fix the log location — depends on B4
+### E2. Fix the log location — `done` with B4
 ### E3. Windows status — depends on B5
 ### E4. "Known limitations" section — `open`
 Minors cap at level 3 (so one-settlement minor provinces are "grown" at 3);

@@ -89,8 +89,10 @@ them, rebuild, and repack. The ones you're most likely to touch:
 Each turn the mod writes two files, overwriting `upgrade_all_summary.txt` (the
 last summary) and appending to `upgrade_all_trace.txt` (step-by-step
 breadcrumbs; trimmed to the last 300 lines when a campaign loads). They go in
-the game's working folder and, on a Mac, also in your home folder. If the game
-crashes mid-turn, the last trace line shows where.
+the game's working folder. On a Mac that is
+`~/Library/Application Support/Steam/steamapps/common/Total War WARHAMMER III/TotalWarhammer3Data/`;
+on Windows it is the game's install folder under `steamapps\common`. If the
+game crashes mid-turn, the last trace line shows where.
 
 ## Repository layout
 

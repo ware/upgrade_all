@@ -461,8 +461,9 @@ end
 -- Files: the trace and summary files land in W instead of on disk
 ---------------------------------------------------------------------------
 local real_io_open = io.open
--- The mod writes to the working folder and (on a Mac) to $HOME; both are
--- caught here by filename so a test run never touches real game logs.
+-- The mod writes to its working folder; anything ending in a log filename is
+-- caught here so a test run never touches real game logs (an extra copy in
+-- another folder, should one ever come back, is swallowed).
 local function ends_with(s, tail) return type(s) == "string" and string.sub(s, -#tail) == tail end
 local discard = { write = function() end, close = function() end, lines = function() return function() return nil end end }
 io.open = function(path, mode)
