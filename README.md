@@ -107,6 +107,34 @@ them, rebuild, and repack. The ones you're most likely to touch:
 | `test_mode` | `false` | Survey settlements and build nothing (for diagnosing) |
 | `detailed_trace` | `false` | Log every region, slot and commandment read (for chasing a crash) |
 
+### Changing the build order
+
+What gets built, and in what order, is the `CULTURE_RULES` table just below
+`CONFIG` in `src/engine.lua`. Each culture has three lists:
+
+| List | Used for |
+|---|---|
+| `capital` | Province capitals |
+| `minor` | Other settlements |
+| `slow_minor` | Other settlements in slow-build climates (uninhabitable / unpleasant for the culture) |
+
+Each entry is a building *chain* key without its level suffix
+(`wh2_main_hef_order`, not `wh2_main_hef_order_2`); the mod builds level 1
+and upgrades from there. The order is the priority: the first entry gets the
+first free slot. Two placeholders are resolved per settlement: `RESOURCE`
+becomes the building for whatever resource that settlement has (or is skipped
+if it has none), and `LANDMARK` becomes the settlement's landmark from the
+game data (or the `landmarks` override). Anything already standing that isn't
+in the list is demolished to make room, subject to the exceptions under
+"Demolition" above.
+
+To change the order: edit the list, run `python3 run_tests.py` (the layout
+tests, e.g. "Capital layout in order", pin the current order and will tell
+you what they expect), update those tests to the new order, then
+`python3 build.py --install`. Keys from another culture are refused by the
+crash guard, never queued, so a typo there shows up in the trace as
+`Refusing key from another culture` rather than as a crash.
+
 ### Log files
 
 Each turn the mod writes two files, overwriting `upgrade_all_summary.txt` (the

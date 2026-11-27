@@ -227,10 +227,29 @@ with plain string ops; the mod already reads files there) over more UI
 rows; keep the panel for per-campaign choices. First knob to expose:
 `gold_floor` (B3).
 
-### C2. Layouts are code, not data — `open`
+### C2. Layouts are code, not data — `closed with docs; long-term feature noted`
 The capital/minor sequences in `CULTURE_RULES` are the first thing another
 player would want to change, and today that's a source edit.
-**Decision:**
+**Decision:** no code move now; `CULTURE_RULES` is already plain lists of
+chain keys. README gained "Changing the build order" (lists, placeholders,
+which tests pin the order, how to rebuild).
+
+**Long-term (Ryan): an in-game graphical layout editor**, reached from the
+existing settings panel, to rearrange build priorities to a player's taste.
+Requirements:
+1. Reorder `capital` / `minor` / `slow_minor` entries in-game (placeholders
+   `RESOURCE` / `LANDMARK` included).
+2. Persist with the current campaign: survives exit and reload of that save
+   (the panel's existing per-campaign save path covers this).
+3. Save as a default that new campaigns load (needs a store outside the
+   save: a file in the game's working folder, written and read with plain
+   string ops; same mechanism as the C1 override file).
+4. Precedence: campaign's own layout > saved default > built-in
+   `CULTURE_RULES`.
+Design notes: build the storage/precedence layer first (file + save key,
+fully testable in the harness) and the UI last; the UI is the risky part
+(see Lessons) and should start as up/down buttons per row, not drag-and-drop.
+Shares the file mechanism with C1, so do C1's override file first.
 
 ### C3. Other cultures — `open`
 Architecture is culture-generic; adding one is a layout, a tag in `OUR_TAGS`,
