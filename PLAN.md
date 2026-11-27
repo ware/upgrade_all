@@ -154,12 +154,15 @@ demolished, demolish it now; no waiting on gold or settlement tier, no
 per-settlement cap. The unconditional `clear_unwanted` is the intended
 behaviour and the existing demolition tests already pin it.
 
-### B3. Gold floor default — `open`
+### B3. Gold floor default — `done` (revisit with settings)
 
 Opus's live version used `gold_floor = 1000`; the rebuilt code has `0`.
 Irrelevant with a trainer, but one of them should be the documented default.
 
-**Decision:**
+**Decision:** `0` stays the documented default (code and README already
+agree). Revisit if a settings UI for CONFIG values is added: a gold floor is
+the obvious first setting to expose. **Bring this up again when Ryan asks
+about reordering his existing priorities.**
 
 ### B4. Log file location is wrong in the README — `open`
 
