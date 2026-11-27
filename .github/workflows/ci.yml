@@ -7,6 +7,9 @@ on:
     - cron: "0 6 * * 1" # weekly: mutation checks
   workflow_dispatch:
 
+env:
+  RPFM_CLI_VERSION: "4.5.4"
+
 jobs:
   test:
     name: Build and test
@@ -24,11 +27,24 @@ jobs:
         run: git diff --exit-code -- script/campaign/mod/upgrade_all.lua tools/data_block.lua
       - name: Test suite
         run: python3 run_tests.py
-      - name: Upload the mod script for RPFM
+      - name: Cache rpfm_cli
+        id: rpfm
+        uses: actions/cache@v4
+        with:
+          path: ~/.cargo/bin/rpfm_cli
+          key: rpfm_cli-${{ env.RPFM_CLI_VERSION }}-${{ runner.os }}
+      - name: Install rpfm_cli
+        if: steps.rpfm.outputs.cache-hit != 'true'
+        run: cargo install rpfm_cli --version "$RPFM_CLI_VERSION" --locked
+      - name: Build the pack
+        run: python3 build.py --pack
+      - name: Upload the pack and the mod script
         uses: actions/upload-artifact@v4
         with:
-          name: upgrade_all.lua
-          path: script/campaign/mod/upgrade_all.lua
+          name: upgrade_all
+          path: |
+            dist/upgrade_all.pack
+            script/campaign/mod/upgrade_all.lua
 
   mutate:
     name: Mutation checks

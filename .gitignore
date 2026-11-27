@@ -8,8 +8,9 @@ venv/
 # macOS
 .DS_Store
 
-# RPFM output: the .pack is built from script/campaign/mod/upgrade_all.lua, not committed
+# Pack output: built by `python3 build.py --pack` with rpfm_cli, not committed
 *.pack
+dist/
 
 # Files the mod writes when run outside the test harness
 upgrade_all_trace.txt

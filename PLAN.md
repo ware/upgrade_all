@@ -207,8 +207,15 @@ make recommendations from what actually ran.
 
 ## C. Design
 
+### C0. Packaging — `done`
+`build.py --pack` makes `dist/upgrade_all.pack` with rpfm_cli as a movie
+pack (the macOS launcher doesn't manage local packs; movie packs load
+unconditionally). `--install` copies it into the game's data folder. CI
+builds the pack and uploads it with the script as the `upgrade_all`
+artifact. **Revisit the movie type if the mod is ever published.**
+
 ### C1. CONFIG is compiled in — `open`
-Every change is edit → build → RPFM → repack. The settings panel already
+Every change is edit → `build.py --install` → restart the game. The settings panel already
 persists per-campaign state in the save; `gold_floor`, `allow_demolish`,
 `popup` (and any new knobs from A1/B2) could live there with a few more rows.
 **Decision:**

@@ -64,12 +64,17 @@ and the mod leaves it alone.
 
 ## Installing and configuring
 
-1. Build (or download from CI) `script/campaign/mod/upgrade_all.lua`.
-2. In RPFM, create or open your mod `.pack` and add the file at exactly
-   `script/campaign/mod/upgrade_all.lua`.
-3. Enable the `.pack` in the launcher or your mod manager, and start or load a
-   single-player campaign as any High Elf or Dark Elf faction. With other
-   cultures, or in multiplayer, the mod stays inactive.
+1. Get `upgrade_all.pack`: download the `upgrade_all` artifact from the latest
+   CI run, or build it yourself (`python3 build.py --pack`, see below).
+2. Copy it into the game's `data` folder (on a Mac,
+   `~/Library/Application Support/Steam/steamapps/common/Total War WARHAMMER III/TotalWarhammer3Data/data/`).
+   It is a *movie*-type pack, so it loads without being enabled in the
+   launcher; this works around the macOS launcher not managing local packs.
+3. Start or load a single-player campaign as any High Elf or Dark Elf faction.
+   With other cultures, or in multiplayer, the mod stays inactive.
+
+If you'd rather use RPFM's GUI, the artifact also includes
+`script/campaign/mod/upgrade_all.lua`; add it to a pack at exactly that path.
 
 Settings live in the `CONFIG` table at the top of `src/engine.lua`; change
 them, rebuild, and repack. The ones you're most likely to touch:
@@ -103,7 +108,7 @@ game crashes mid-turn, the last trace line shows where.
 | `tools/data_block.lua` | Generated tables from the game data (do not edit by hand) |
 | `tools/gen_data.py` | Generates `data_block.lua` from the RPFM exports |
 | `exports/` | RPFM table exports the generator reads |
-| `build.py` | Builds `script/campaign/mod/upgrade_all.lua` = data + engine |
+| `build.py` | Builds `script/campaign/mod/upgrade_all.lua` = data + engine; `--pack` / `--install` make and install the `.pack` |
 | `script/campaign/mod/upgrade_all.lua` | The built mod file that goes in the `.pack` |
 | `run_tests.py`, `tests/` | Test suite: a fake campaign that imitates the game's API; also fails if the built script or data block is out of date |
 | `tools/mutate.py` | Mutation checks: breaks each rule in turn and confirms a test catches it |
@@ -127,14 +132,19 @@ pip install -r requirements.txt
 `.venv/` is ignored by git.)
 
 ```sh
-python3 build.py          # build script/campaign/mod/upgrade_all.lua
-python3 run_tests.py      # run the test suite
-python3 tools/mutate.py   # optional: confirm every safeguard is tested (a few minutes)
+python3 build.py            # build script/campaign/mod/upgrade_all.lua
+python3 run_tests.py        # run the test suite
+python3 tools/mutate.py     # optional: confirm every safeguard is tested (a few minutes)
+python3 build.py --pack     # also build dist/upgrade_all.pack (needs rpfm_cli)
+python3 build.py --install  # ... and copy it into the game's data folder
 ```
 
-Then, in RPFM, put `script/campaign/mod/upgrade_all.lua` into your mod `.pack`
-at the same path. (The CI run on GitHub also uploads that file as an artifact
-named `upgrade_all.lua`.)
+`--pack` uses [rpfm_cli](https://github.com/Frodo45127/rpfm), the command-line
+half of RPFM: `cargo install rpfm_cli`. `--install` looks for the game's data
+folder in the usual Steam location on macOS and Windows; set `WH3_DATA_DIR` if
+yours is elsewhere. The game reads packs at launch, so restart it after
+installing. CI uploads both the pack and the script as the `upgrade_all`
+artifact.
 
 Edit `src/engine.lua`, never the built file: `run_tests.py` fails if the built
 script doesn't match `tools/data_block.lua` + `src/engine.lua`.
