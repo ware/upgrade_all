@@ -5,8 +5,9 @@ for you when you click End Turn, so you can spend your attention elsewhere.
 **It works only for High Elf and Dark Elf factions, in single-player.** With any
 other culture, or in a multiplayer campaign, the mod loads but does nothing
 (it notes why in its trace file). Built against
-Total War: Warhammer III **v9.0.5 for macOS**; other platforms should work but
-haven't been tried.
+Total War: Warhammer III **v9.0.5 for macOS**. Much of the development was
+done on Windows, so it runs there too, though the current build has only been
+played on the Mac.
 
 When you click End Turn it spends the gold you didn't use (down to a floor) on:
 

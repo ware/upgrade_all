@@ -179,16 +179,15 @@ and says Windows uses the install folder. Writing to `~` can be revisited if
 it ever matters. Stale `~/upgrade_all_*.txt` files from earlier builds can
 be deleted by hand.
 
-### B5. Windows — `open`
+### B5. Windows — `done`
 
-There is a Windows machine; the README says macOS only. Everything after the
-first simple version was verified on Windows during the Opus era, but on a
-bad save; nothing since the rebuild has run there.
+Most development ran on Windows (RPFM wasn't on the Mac until today), the
+last time a couple of weeks ago; nothing since the rebuild has run there.
 
-**Question:** still playing on Windows? If yes, one turn's trace from it
-(popups, settings button, current-version save). If no, README says
-"macOS; Windows untested".
-**Decision:**
+**Decision:** README now says built against v9.0.5 for macOS, developed
+largely on Windows, current build played only on the Mac. If a Windows
+session happens later, one turn's trace from it would confirm the current
+build (popups, settings button); not required.
 
 ### B6. The trainer changes the priorities — `noted`
 
@@ -250,7 +249,7 @@ checklist in the README: load a save, End Turn, check the trace for
 
 ### E1. Honesty pass on the lessons — `done` with B1
 ### E2. Fix the log location — `done` with B4
-### E3. Windows status — depends on B5
+### E3. Windows status — `done` with B5
 ### E4. "Known limitations" section — `open`
 Minors cap at level 3 (so one-settlement minor provinces are "grown" at 3);
 multi-path buildings left alone; single-player only; one province protected;
