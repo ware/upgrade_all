@@ -191,9 +191,17 @@ build (popups, settings button); not required.
 
 ### B6. The trainer changes the priorities — `noted`
 
-With ~4.4M gold, `gold_floor`, spend-to-zero, income-first ordering and the
+With ~4.9M gold, `gold_floor`, spend-to-zero, income-first ordering and the
 multi-pass refund logic are inert. Game refusals (A1) are the only limiter.
 No action by itself; it informs A1, B2, B3.
+
+Scale: the current (Dark Elf) campaign started 4 days ago, when Dark Elf
+support was added. The gold-rationing paths have been exercised in play
+before that, just not since the rebuild. Not an immediate concern.
+
+**Follow-up, after this plan is worked through:** Ryan starts a new
+campaign and plays a few hours; I read the trace and summary files and
+make recommendations from what actually ran.
 
 ---
 
