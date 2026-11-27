@@ -90,15 +90,15 @@ session with a single `game signal ... unavailable` trace line.
 appears, and whether any "charged ... but the game reported no issued order"
 line appears (that would mean script orders don't raise the issued event).
 
-### A3. Commandment reminder in one-settlement provinces — `open`
+### A3. Commandment reminder in one-settlement provinces — `closed, no change`
 
 Great Desert of Araby is "fully grown" at `settlement_minor_3` (top level for
 Dark Elf minors) and will ask for Enforce Tribute Payments until it's set.
 Correct by the rules. If the game won't let a commandment be set in such
 provinces, the reminder needs an exception like `is_fort`.
 
-**Question:** were you able to set Enforce Tribute Payments there?
-**Decision:**
+**Decision:** Ryan was able to set Enforce Tribute Payments there, so the
+reminder was right and one-settlement provinces need no exception.
 
 ### A4. Fixed today — `done`
 - `string.match` removed; harness traps all pattern functions.
