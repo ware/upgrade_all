@@ -810,10 +810,15 @@ end)
 ---------------------------------------------------------------------------
 -- Orders that never appear (Monument of the Moon), and why slots stay empty
 ---------------------------------------------------------------------------
--- Timer fallback: the slot still says it is working (the game never told us
--- otherwise), so only the turn count can give the order up.
+-- Timer fallback: without slot:is_working (an older game), only the turn
+-- count can give an order up.
+local function no_slot_status()
+    for _, r in ipairs(W.regions) do for _, s in ipairs(r.slots) do s.is_working = nil end end
+end
+
 test("Monument of the Moon: a Homestead that never appeared is ordered again after its build time + 1", function()
     new_world({ mkregion("moon", "p", { main = MAXED_MINOR, buildings = { false } }) })
+    no_slot_status()
     load(); end_turn()                          -- turn 1: ordered (1-turn build)
     eq(joined("moon"), "wh2_main_hef_farm_1")
     W.queued = {}
@@ -826,6 +831,7 @@ end)
 
 test("Slow-build climates get double the time before an order is given up on", function()
     new_world({ mkregion("moon", "p", { main = MAXED_MINOR, buildings = { false }, bundles = { wh2_main_climate_uninhabitable = true } }) })
+    no_slot_status()
     load(); end_turn()
     W.queued = {}
     for _ = 1, 3 do end_turn() end              -- 1 x 2 + 1 = 3 turns: still waiting
@@ -871,20 +877,30 @@ test("An order that silently vanished is retried as soon as the slot is seen idl
     assert_in(W.trace_file, "the slot is idle; the order is gone, trying the slot again")
 end)
 
-test("A slot the game says is still working is left alone until the timer", function()
+test("A slot the game says is still working is left alone past the build-time timer (Cuexotl: 7-turn build took 11)", function()
     new_world({ mkregion("cap", "p", { capital = true, main = "wh2_main_hef_settlement_major_4", buildings = {} }) })
     load(); end_turn()
     W.queued = {}
-    for _ = 1, 8 do end_turn() end              -- up to 8 turns old: 7 + 1 grace
+    for _ = 1, 13 do end_turn() end             -- up to 13 turns old: well past 7 + 1
     eq(#W.queued, 0, "re-ordered while the slot was working")
-    end_turn()
-    eq(#W.queued, 1, "timer fallback did not fire")
+    assert_not_in(W.trace_file, "never appeared")
+    end_turn()                                  -- 14 turns old: still under the 15-turn cap
+    eq(#W.queued, 0, "re-ordered before the hard cap")
+    end_turn()                                  -- 15: the cap
+    eq(#W.queued, 1, "hard cap did not fire")
+    assert_in(W.trace_file, "the slot is still working after 15 turns; giving up on it")
+end)
+
+test("The trace says each turn which game signals are in use", function()
+    new_world({ mkregion("moon", "p", { main = MAXED_MINOR, buildings = { false } }) })
+    load(); end_turn()
+    assert_in(W.trace_file, "game signals: issued events seen=false, slot status=available")
 end)
 
 test("Without slot:is_working the timer still works and the trace says so once", function()
     new_world({ mkregion("moon", "p", { main = MAXED_MINOR, buildings = { false } }),
                 mkregion("sun", "q", { main = MAXED_MINOR, buildings = { false } }) })
-    for _, r in ipairs(W.regions) do for _, s in ipairs(r.slots) do s.is_working = nil end end
+    no_slot_status()
     load(); end_turn()
     W.queued = {}
     end_turn(); end_turn()

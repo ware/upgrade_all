@@ -90,6 +90,7 @@ MUTATIONS = [
     ("forget_orders ignores the region", 'if p.target == key and string.sub(id, 1, #head) == head then', 'if p.target == key then'),
     ("idle slot not retried", "                    if working == false then", "                    if false then"),
     ("working slot retried", "                    if working == false then", "                    if working ~= nil then"),
+    ("working slot still on the build-time timer", "                    elseif working == true then\n", "                    elseif false then\n"),
     ("issued event ignored", "        if issued == true and cost <= 0 then", "        if false then"),
     ("issued event trusted before ever seen", "    if not signals.issued_seen then return nil end\n", ""),
     ("issued keys never cleared", "        signals.issued = {}\n", ""),

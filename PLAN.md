@@ -85,10 +85,19 @@ accepted. Listening to the game's events was never tried before.
 Every new game call is in `pcall`; one that fails is switched off for the
 session with a single `game signal ... unavailable` trace line.
 
-**To check in the next trace:** whether `issued`/`finished`/`cancelled
-(game event)` lines appear, whether any `game signal ... unavailable` line
-appears, and whether any "charged ... but the game reported no issued order"
-line appears (that would mean script orders don't raise the issued event).
+**Checked, turns 238–243 (2026-11-27):**
+- `BuildingCompleted` fires for every finished order (14–16 `finished (game
+  event)` lines per turn). `slot:is_working()` works (no `unavailable`).
+- **The two A2 orders were never lost.** Cuexotl's `major_5` (ordered 229,
+  7-turn build) finished on turn 240; Carcassonne's `major_4` (ordered 232,
+  6-turn build) finished on turn 241. The settlements build at ~1.5× the
+  data's time (unpleasant climate / penalties), the timer gave up while the
+  slot still reported working, and the retries were refused. Fixed: when
+  the slot says it is working only the `pending_timeout` hard cap applies;
+  the build-time timer is now purely the no-`is_working` fallback.
+- Issued events: no line either way. Added a per-turn `game signals:` trace
+  line so the next trace states it.
+- No cancellation was seen (none was made).
 
 ### A3. Commandment reminder in one-settlement provinces — `closed, no change`
 

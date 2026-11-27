@@ -789,6 +789,13 @@ local function inspect_region(region, turn)
                     if working == false then
                         log(id .. ": ordered " .. p.target .. " on turn " .. p.turn .. " but the slot is idle; the order is gone, trying the slot again")
                         pending[id] = nil; p = nil
+                    elseif working == true then
+                        -- Still building (slow climates and penalties stretch
+                        -- the data's build time); only the hard cap applies.
+                        if turn - p.turn >= CONFIG.pending_timeout then
+                            log(id .. ": ordered " .. p.target .. " on turn " .. p.turn .. " and the slot is still working after " .. (turn - p.turn) .. " turns; giving up on it")
+                            pending[id] = nil; p = nil
+                        end
                     elseif order_overdue(p, region, turn) then
                         log(id .. ": ordered " .. p.target .. " on turn " .. p.turn .. " but it never appeared; trying the slot again")
                         pending[id] = nil; p = nil
@@ -1995,6 +2002,8 @@ cm:add_first_tick_callback(function()
             return
         end
         local ok, result = pcall(run_turn, cm:get_faction(fkey))
+        trace("game signals: issued events seen=" .. tostring(signals.issued_seen)
+            .. ", slot status=" .. (signals.slot_status and "available" or "unavailable"))
         trace("done")
         local text
         if ok then
