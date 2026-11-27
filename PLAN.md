@@ -251,10 +251,89 @@ fully testable in the harness) and the UI last; the UI is the risky part
 (see Lessons) and should start as up/down buttons per row, not drag-and-drop.
 Shares the file mechanism with C1, so do C1's override file first.
 
-### C3. Other cultures — `open`
-Architecture is culture-generic; adding one is a layout, a tag in `OUR_TAGS`,
-and a real test campaign (the crash-on-foreign-building behaviour can't be
-checked outside the game). "When you feel like playing them."
+### C3. Other cultures — `researched; design agreed, not started`
+Architecture is culture-generic; adding one is a layout, a tag, and a real
+test campaign. Ryan has ~1,000 hours in HE/DE and little in the rest, so
+validation by play is not available for most cultures.
+
+**Finding (exports checked 2026-11-27):** the data already carries the role
+map. `building_chains.building_superchain` is a cross-culture role label
+shared by every game generation (`wh2_main_sch_infrastructure1_farm`,
+`..._infrastructure3_order`, `..._infrastructure4_energy`,
+`..._infrastructure2_industry`, `..._defence_major_*`/`*_walls`,
+`..._defence_minor`/`human_garrison`, `..._foreign_slot_discovery`,
+`..._infrastructure5_tradingspying`, `..._support2_worship`,
+`..._support3_wizards`, `..._support4_other`). Expressing the HE and DE
+layouts as a role sequence and resolving roles to chains per culture from
+superchains **reproduces both of Ryan's layouts exactly** (capital, minor
+and slow_minor), with whole-word culture matching. So the priorities are
+one rule (grow, pacify, earn, defend, resource, industry, landmark,
+explore, culture specials last) applied twice; the culture-specific part is
+data.
+
+Coverage of the eleven roles, from the exports:
+- **Full or near-full (standard settlement model):** Empire, Dwarfs,
+  Bretonnia, Vampire Counts, Lizardmen, Skaven, Tomb Kings, Kislev, Khorne,
+  Slaanesh, Tzeentch, Nurgle, Ogre Kingdoms, Chaos Dwarfs. Missing roles are
+  genuine (e.g. Lizardmen have no income2/wizards chain) and the layout just
+  skips them.
+- **Multiple chains per role (needs a tie-break rule):** Cathay (yin/yang
+  pairs), Norsca (loot/growth, income/slaves), the four monogod factions
+  (daemonic `dae_*` chains alongside their own).
+- **Nothing found:** Greenskins (core chains not keyed by culture word;
+  needs a different matcher), Wood Elves, Vampire Coast, Nagash's legions,
+  Beastmen — see C4.
+
+**Engineering prerequisites before any layout work:**
+1. Culture identification. WH1 cultures key chains as `wh_main_EMPIRE_*`,
+   `wh_main_DWARFS_*`/`wh_main_DWARF_*`, `wh_main_BRETONNIA_*`,
+   `wh_main_VAMPIRES_*`, not by 3-letter tag. Today the crash guard treats
+   those as "no culture tag" and refuses them, which is safe but means
+   `CULTURE_TAGS`, `gen_data.OTHER_CODES` and `wrong_culture` all need the
+   uppercase names added before those cultures can be enabled.
+2. `gen_data.py` emits a per-culture role→chain table (`UA_DATA.roles`),
+   and `CULTURE_RULES.capital/minor/slow_minor` become role sequences
+   resolved at load. **Validation test in `run_tests.py`:** the resolved HE
+   and DE lists must equal the current hand-written ones, byte for byte.
+3. Per-culture commandment keys (`tribute_key`, `banish_key`) and
+   `protect` rule, and the main-settlement chain names, still need a line
+   each per culture; these are small and visible in the exports.
+
+**How a culture gets switched on:** generated layout → harness passes →
+one in-game `test_mode` survey (reads slots, builds nothing, proves the
+keys resolve) → a few turns on a throwaway campaign → enabled. The last two
+steps are the ones Ryan can't do for every culture; once published, the
+Contributing section invites players of that culture to do them.
+
+**Decision:** C3 is approved as a direction. Start with prerequisites 1–2
+(no behaviour change for HE/DE; the validation test is the deliverable),
+then one pilot culture Ryan is willing to play a few turns of (Empire or
+Lizardmen: standard model, full coverage). Not scheduled yet.
+
+### C4. Cultures that don't fit the settlement model — `open, to work out`
+The layout approach assumes: regions with a main slot and secondary slots,
+gold-priced buildings, a treasury that drops when an order is accepted, and
+one chain per role. Each of these fails somewhere. Work out, per group,
+what "upgrade all" would even mean and whether it's worth doing:
+- **Hordes (Beastmen, Warriors of Chaos hordes, Ogre camps, Spirit of
+  Grungni, Nakai):** no regions; buildings live in an army's horde slots
+  (`optional_required_horde_commander`, `*_sch_horde_*` superchains). Would
+  need a second engine path over `military_force:buildings()`; the
+  treasury/`is_working` signals may differ. Probably out of scope; decide.
+- **Wood Elves:** a handful of chains, Athel Loren magic forests vs outposts
+  outside; main-settlement rules differ by region type. Needs its own
+  layout logic, not just a layout.
+- **Skaven under-cities / Chaos Dwarf outposts & factories / Dwarf
+  Underdeep:** foreign-slot buildings in other factions' regions
+  (`is_foreign_slot_chain`, `wh3_main_underdeep_*`). The mod's region loop
+  never sees them; out of scope unless a player asks.
+- **Non-gold costs:** Chaos Dwarfs (labour/armaments), Tomb Kings (build
+  limits by dynasty), Cathay (yin/yang balance), Norsca (limited slots per
+  settlement). The "treasury dropped ⇒ accepted" rule and the gold-floor
+  logic need the game's issued event (A2) to be reliable first.
+- **Greenskins, Vampire Coast, Nagash:** chains not keyed by a culture
+  word in the way the matcher expects; needs a key-pattern survey before
+  the coverage table above means anything for them.
 **Decision:**
 
 ---
