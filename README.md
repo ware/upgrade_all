@@ -283,7 +283,12 @@ are the right ones but because they're the ones its author wanted.
 
 Pull requests that add functionality are welcome from anyone: other cultures,
 different layouts, alternative spending strategies, options for things that
-are hard-coded now. The bar for merging is the same one the existing code
+are hard-coded now. Other cultures in particular are closer than they look:
+`UA_DATA.roles` already resolves the layout roles for 25 cultures from the
+game data, so a new culture is a `CULTURE_RULES` entry (role order,
+commandment keys, which province to leave alone) plus a few turns of play to
+confirm it. Cultures without ordinary settlements (hordes, Wood Elves) need
+more than that. The bar for merging is the same one the existing code
 clears:
 
 - `python3 run_tests.py` passes, including the generated-file checks.
