@@ -214,11 +214,18 @@ unconditionally). `--install` copies it into the game's data folder. CI
 builds the pack and uploads it with the script as the `upgrade_all`
 artifact. **Revisit the movie type if the mod is ever published.**
 
-### C1. CONFIG is compiled in — `open`
+### C1. CONFIG is compiled in — `deferred`
 Every change is edit → `build.py --install` → restart the game. The settings panel already
 persists per-campaign state in the save; `gold_floor`, `allow_demolish`,
-`popup` (and any new knobs from A1/B2) could live there with a few more rows.
-**Decision:**
+`popup` could live there with a few more rows.
+**Decision:** deferred. C0 made a rebuild one command; the knobs change
+rarely; the panel is the riskiest code and saves per campaign (wrong for
+global settings). Revisit when the mod is published or a contributor can't
+rebuild. When it comes back, prefer an optional `upgrade_all_config.txt`
+override file in the game's working folder (`key = value`, read at load
+with plain string ops; the mod already reads files there) over more UI
+rows; keep the panel for per-campaign choices. First knob to expose:
+`gold_floor` (B3).
 
 ### C2. Layouts are code, not data — `open`
 The capital/minor sequences in `CULTURE_RULES` are the first thing another
