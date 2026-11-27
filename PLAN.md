@@ -137,7 +137,7 @@ issues is still valuable." README "Lessons" section now says which rules
 were reproduced on a fresh campaign and which came from the old-save hunt
 (this also covers E1). Status: `done`.
 
-### B2. Two demolition guardrails were lost in the rebuild — `open`
+### B2. Two demolition guardrails were lost in the rebuild — `closed, no change`
 
 Opus described, when demolition was added:
 - "Only demolish when the replacement can be built right now: the treasury is
@@ -149,8 +149,10 @@ outside the wanted set unconditionally; there is no such CONFIG key. The
 slot-gap tests cover part of the intent but not these rules. The gold check
 is moot with a trainer; the tier check and the cap aren't.
 
-**Question:** restore both? Cap at 2 as originally planned?
-**Decision:**
+**Decision:** neither comes back. Ryan: if a building is going to be
+demolished, demolish it now; no waiting on gold or settlement tier, no
+per-settlement cap. The unconditional `clear_unwanted` is the intended
+behaviour and the existing demolition tests already pin it.
 
 ### B3. Gold floor default — `open`
 
