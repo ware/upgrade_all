@@ -42,7 +42,10 @@ MUTATIONS = [
     ("single pass only", "        if stats.stop or stats.orders == orders_before then break end", "        break"),
     ("upgrades unranked", "                if a.inc ~= b.inc then return a.inc > b.inc end\n", ""),
     ("multi-path upgrades taken", "    if count == 1 then return found end", "    if count >= 1 then return found end"),
-    ("refused build counted as success", "        if cost <= 0 then stats.refused", "        if false then stats.refused"),
+    ("refused build counted as success", "        if cost <= 0 then\n            stats.refused", "        if false then\n            stats.refused"),
+    ("refused order asked again next pass", '        if stats.refused_orders[order_id] then stats.why = "refused by the game earlier this turn"; return false end\n', ""),
+    ("tier requirement not checked before asking", "        if info and not level_ok(info, key) then", "        if false then"),
+    ("refusals counted per pass, not per turn", "            stats.refused_total = stats.refused_total + 1\n", "            stats.refused_total = stats.refused_total + 2\n"),
     # demolition and slots
     ("keep-next exception removed", " and c ~= keep_next\n", "\n"),
     ("specials demolished", ' and not contains(e.current, "special") and not contains(c, "special")', ""),

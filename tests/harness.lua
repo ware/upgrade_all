@@ -195,6 +195,12 @@ function H.has(list, value)
     return false
 end
 function H.joined(region_key) return table.concat(H.queued_in(region_key), ",") end
+-- How many times the game was asked for a key (accepted or refused).
+function H.attempts_for(key)
+    local n = 0
+    for _, a in ipairs(W.attempts) do if a.key == key then n = n + 1 end end
+    return n
+end
 
 ---------------------------------------------------------------------------
 -- UI: generic components (settings panel, menu bar) and dialogue boxes (popup)
@@ -311,7 +317,7 @@ function H.new_world(regions, treasury)
     W = {
         regions = regions or {}, treasury = treasury or 100000, turn = 1,
         culture = "wh2_main_hef_high_elves", player = "wh2_main_hef_eataine", home = nil,
-        queued = {}, demolished = {}, listeners = {}, timers = {}, save_cbs = {}, load_cbs = {},
+        queued = {}, attempts = {}, demolished = {}, listeners = {}, timers = {}, save_cbs = {}, load_cbs = {},
         invalid = {}, costs = {}, files = {}, trace_file = "", summaries = {}, dialogs = {}, sequence = {},
         crashes = {}, dropped_timers = 0, find_calls = 0, multiplayer = false,
         ui = { comps = {}, dying = {} }, loc = {},
@@ -381,6 +387,7 @@ local function install_globals()
                 if tag ~= own and has_tag(key, tag) then crash("queued another culture's building " .. key) end
             end
             if string.sub(key, 1, #"wh2_dlc17_silent_sanctum_def_boost") == "wh2_dlc17_silent_sanctum_def_boost" then crash("queued " .. key) end
+            W.attempts[#W.attempts + 1] = { slot = slot.id, key = key }  -- every order asked for, accepted or not
             if W.invalid[key] then return end -- the game refuses: nothing charged
             W.treasury = W.treasury - W.cost(key)
             W.queued[#W.queued + 1] = { slot = slot.id, key = key, region = slot.region.key }

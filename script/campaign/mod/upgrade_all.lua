@@ -8371,11 +8371,29 @@ end
 local function run_turn(faction)
     local fkey = faction:name()
     local turn = cm:turn_number()
-    local stats = { new = 0, upgraded = 0, refused = 0, demolished = 0, short = 0, first_short = nil, farms_removed = 0, tribute = {}, banish = {}, tribute_seen = {}, spent = 0, orders = 0, stop = nil, per_province = {}, order = {} }
+    local stats = { new = 0, upgraded = 0, refused = 0, demolished = 0, short = 0, first_short = nil, farms_removed = 0, tribute = {}, banish = {}, tribute_seen = {}, spent = 0, orders = 0, stop = nil, per_province = {}, order = {},
+                    refused_orders = {}, refused_total = 0,   -- "slot|key" refused by the game this turn, and how many
+                    tier_wait = {}, tier_wait_total = 0 }     -- "slot|key" the data says the settlement is too small for
 
     -- Queue one building; returns true if the game accepted (charged for) it.
-    local function try(entry, key, province, kind)
+    -- `info` (the settlement, when known) lets the data's main-settlement level
+    -- requirement rule a building out without asking the game.
+    local function try(entry, key, province, kind, info)
         if stats.stop then return false end
+        local order_id = entry.id .. "|" .. key
+        -- Refused earlier this turn: nothing that causes a refusal (settlement
+        -- level, growth, technology) changes between passes, so don't ask again.
+        if stats.refused_orders[order_id] then stats.why = "refused by the game earlier this turn"; return false end
+        -- The data knows the main-settlement level each building needs.
+        if info and not level_ok(info, key) then
+            local t = UA_DATA.tier[key]
+            stats.why = "needs main settlement level " .. tostring(t and t[2]) .. " (this one is level " .. tostring(main_level(info)) .. ")"
+            if not stats.tier_wait[order_id] then
+                stats.tier_wait[order_id] = true
+                stats.tier_wait_total = stats.tier_wait_total + 1
+            end
+            return false
+        end
         -- Crash guard. Exception: the next level of a building already in the
         -- slot, when it's the main settlement (special settlements like Gaean
         -- Vale have no "hef" in their keys) or a culture-neutral building (The
@@ -8400,7 +8418,13 @@ local function run_turn(faction)
         detail("queueing " .. key .. " at " .. entry.id)
         cm:add_building_to_settlement_queue(entry.slot, key)
         local cost = before - cm:get_faction(fkey):treasury()
-        if cost <= 0 then stats.refused = stats.refused + 1; stats.why = "refused by the game"; return false end
+        if cost <= 0 then
+            stats.refused = stats.refused + 1; stats.why = "refused by the game"
+            stats.refused_orders[order_id] = true
+            stats.refused_total = stats.refused_total + 1
+            log(entry.id .. ": " .. key .. " refused by the game")
+            return false
+        end
         pending[entry.id] = { target = key, turn = turn }
         entry.waiting = true
         entry.target = key
@@ -8578,7 +8602,7 @@ local function run_turn(faction)
                     local notes = {}  -- why slots stay empty, written to the trace
                     local function place(building_key)
                         local slot = info.empty[1]
-                        if try(slot, building_key, prov.key, "new") then
+                        if try(slot, building_key, prov.key, "new", info) then
                             table.remove(info.empty, 1)
                             info.chains[chain_of(building_key)] = true
                             return true
@@ -8648,7 +8672,7 @@ local function run_turn(faction)
                         if up then
                             local fi, pi, gi = score(e.current)
                             local fu, pu, gu = score(up)
-                            candidates[#candidates + 1] = { entry = e, target = up, inc = fu - fi, pct = pu - pi, growth = gu - gi }
+                            candidates[#candidates + 1] = { entry = e, target = up, info = info, inc = fu - fi, pct = pu - pi, growth = gu - gi }
                         end
                     end
                 end
@@ -8661,7 +8685,7 @@ local function run_turn(faction)
             end)
             for _, c in ipairs(candidates) do
                 if stats.stop then break end
-                try(c.entry, c.target, prov.key, "upgraded")
+                try(c.entry, c.target, prov.key, "upgraded", c.info)
             end
         end
 
@@ -8700,7 +8724,8 @@ local function summary_body(stats, treasury)
         string.format("New buildings: %d", stats.new),
         string.format("Upgrades: %d", stats.upgraded),
         string.format("Gold spent: %d   Treasury: %d", stats.spent, treasury),
-        string.format("Not allowed yet (tier, growth, tech): %d", stats.refused),
+        string.format("Waiting on settlement level: %d", stats.tier_wait_total or 0),
+        string.format("Refused by the game (growth, tech...): %d", stats.refused_total or 0),
         string.format("Demolished to make room: %d", stats.demolished),
     }
     for _, l in ipairs(totals) do lines[#lines + 1] = l end

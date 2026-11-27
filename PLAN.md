@@ -1,0 +1,233 @@
+# Upgrade All — open items
+
+Working list from the 26 Nov 2026 review. Each item has a status and, where a
+decision is needed, a **Decision:** line for Ryan to fill in. Items are
+numbered for reference in conversation; the order within a section is the
+suggested priority.
+
+Status key: `open` · `decided` · `in progress` · `done` · `dropped`
+
+---
+
+## A. Things the trace shows
+
+### A1. ~90 orders refused by the game every End Turn — `in progress` (steps 1–4 done, 5 pending)
+
+Done 26 Nov: every refused order is named once in the trace; refused
+`slot|key` pairs are not asked for again within the turn; the data's
+main-settlement level requirement rules out placements and upgrades before
+the game is asked; the summary reads "Waiting on settlement level: N" /
+"Refused by the game (growth, tech...): M". Next: one turn of play to see the
+real mix, then decide on step 5.
+
+Latest run (turn 237): **87 refused** in the final pass. The loop stops when a
+pass places nothing new, so with a trainer it runs 2 passes (the trace shows
+`pass 1`, `pass 2`, `done`): roughly 175 refused orders per End Turn, each
+one retried once for no reason.
+
+Why it's there: the game has no "can I build this?" call, so "queue it and
+see if the treasury dropped" became the universal oracle; new game calls were
+avoided during the crash hunt; the summary labels the count "Not allowed yet
+(tier, growth, tech)", which framed it as normal; `level_ok` was added only to
+fix one landmark case; and the multi-pass loop was designed around gold
+changing between passes, not around refusals being the stable outcome.
+Only the 5 main-building refusals are visible in the trace (4 capitals at
+`settlement_major_4 → 5`, Zvorak `minor_2 → 3`); the other ~82 are
+secondary-building upgrades that are counted but never named.
+
+Proposal, in order:
+
+1. **See them.** Log every refused order once per turn at the default trace
+   level (`region#slot: key refused by the game`), deduplicated across passes.
+2. **Stop retrying within a turn.** Nothing that causes a refusal changes
+   between pass 1 and pass 5; remember refused `slot|key` pairs for the turn.
+   Cuts orders placed by ~80%, zero risk.
+3. **Don't ask when the data already says no.** `UA_DATA.tier[key][2]` is the
+   main-settlement level a building needs; `level_ok()` checks it but only for
+   landmarks. Apply it to every placement and upgrade.
+4. **Report by reason.** Split "Not allowed yet: 87" into "Waiting on
+   settlement level: N" (known from data, never attempted) and "Refused by the
+   game: M" (growth, tech, unknown).
+5. **Later, optional: technology.** Needs a new export
+   (`building_level_required_technology_junction_tables`) and a new game call
+   (`faction:has_technology()`). Decide after step 1 shows the mix. If the
+   remaining refusals are growth-gated capitals, the answer is "retry every
+   few turns" rather than a new API.
+
+**Decision:** 1–4 approved and shipped. Step 5 after the next trace.
+
+### A2. Main-building orders that "never appeared" are held too long — `open`
+
+`vulture_mountain` and `tlaqua` held `settlement_major_5` orders from turn
+223 for ten turns, then were refused immediately on retry. The pending
+mechanism exists because the game won't say whether a slot is under
+construction, but a settlement's *level* is visible: if the main building
+hasn't changed level N turns after an order, the order is gone and the slot
+could be retried sooner.
+
+**Decision:**
+
+### A3. Commandment reminder in one-settlement provinces — `open`
+
+Great Desert of Araby is "fully grown" at `settlement_minor_3` (top level for
+Dark Elf minors) and will ask for Enforce Tribute Payments until it's set.
+Correct by the rules. If the game won't let a commandment be set in such
+provinces, the reminder needs an exception like `is_fort`.
+
+**Question:** were you able to set Enforce Tribute Payments there?
+**Decision:**
+
+### A4. Fixed today — `done`
+- `string.match` removed; harness traps all pattern functions.
+- Data-driven `NEXT_LEVEL`: a main building the data says isn't at top level
+  is never treated as maxed, and the data's next level is tried when the game
+  lists none.
+- Owned culture-neutral buildings (`_other` landmarks, Copher's port) upgraded
+  along their own chain; previously refused by the crash guard every turn.
+- Trace explains every un-upgraded main building and every "fully grown"
+  province at the default level.
+- Harness no longer overwrites the real log files in `$HOME`.
+- `run_tests.py` fails if the built script or data block is stale.
+
+---
+
+## B. Things the Opus transcript changes
+
+### B1. The "lessons" rest on thinner evidence than the README implies — `open`
+
+Most of the crash hunt ran on a save the game flagged as from an older
+version; Opus concluded the save was the underlying problem. Rules derived
+with that confounder present:
+- Popups crash on Windows (later re-added; work on the Mac).
+- No slot reads inside the turn-start event.
+- A timer started inside a timer never fires.
+
+The `string.find` finding **was** reproduced on the fresh campaign (the
+diagnostic call crashed step 1), so it stands.
+
+The harness enforces all of them. Keeping them costs nothing but constrains
+contributors; the README presents them as established.
+
+**Question:** keep the unproven rules enforced (recommended), or relax them
+and let a future trace decide? Either way, reword the README to say where
+each came from.
+**Decision:**
+
+### B2. Two demolition guardrails were lost in the rebuild — `open`
+
+Opus described, when demolition was added:
+- "Only demolish when the replacement can be built right now: the treasury is
+  above your floor, and the settlement tier is high enough for it."
+- "At most 2 demolitions per settlement per turn (`max_demolish_per_settlement`)."
+
+Neither is in `src/engine.lua` today. `clear_unwanted` demolishes anything
+outside the wanted set unconditionally; there is no such CONFIG key. The
+slot-gap tests cover part of the intent but not these rules. The gold check
+is moot with a trainer; the tier check and the cap aren't.
+
+**Question:** restore both? Cap at 2 as originally planned?
+**Decision:**
+
+### B3. Gold floor default — `open`
+
+Opus's live version used `gold_floor = 1000`; the rebuilt code has `0`.
+Irrelevant with a trainer, but one of them should be the documented default.
+
+**Decision:**
+
+### B4. Log file location is wrong in the README — `open`
+
+Opus added `$HOME` because "the Mac version never produced files in its
+working folder." Today the game wrote only to
+`…/Total War WARHAMMER III/TotalWarhammer3Data/` and nothing to `$HOME`.
+Either the game's working directory changed between versions or the claim
+was wrong. The README's log-location paragraph is incorrect for this setup.
+
+**Question:** does `~/upgrade_all_trace.txt` ever get updated by the game
+now? If never, drop the `$HOME` path and fix the README; if it varies, keep
+both and document both. Check what Windows does before trimming.
+**Decision:**
+
+### B5. Windows — `open`
+
+There is a Windows machine; the README says macOS only. Everything after the
+first simple version was verified on Windows during the Opus era, but on a
+bad save; nothing since the rebuild has run there.
+
+**Question:** still playing on Windows? If yes, one turn's trace from it
+(popups, settings button, current-version save). If no, README says
+"macOS; Windows untested".
+**Decision:**
+
+### B6. The trainer changes the priorities — `noted`
+
+With ~4.4M gold, `gold_floor`, spend-to-zero, income-first ordering and the
+multi-pass refund logic are inert. Game refusals (A1) are the only limiter.
+No action by itself; it informs A1, B2, B3.
+
+---
+
+## C. Design
+
+### C1. CONFIG is compiled in — `open`
+Every change is edit → build → RPFM → repack. The settings panel already
+persists per-campaign state in the save; `gold_floor`, `allow_demolish`,
+`popup` (and any new knobs from A1/B2) could live there with a few more rows.
+**Decision:**
+
+### C2. Layouts are code, not data — `open`
+The capital/minor sequences in `CULTURE_RULES` are the first thing another
+player would want to change, and today that's a source edit.
+**Decision:**
+
+### C3. Other cultures — `open`
+Architecture is culture-generic; adding one is a layout, a tag in `OUR_TAGS`,
+and a real test campaign (the crash-on-foreign-building behaviour can't be
+checked outside the game). "When you feel like playing them."
+**Decision:**
+
+---
+
+## D. Engineering
+
+### D1. `run_turn` is ~280 lines with five nested closures — `open`
+`try`, `resolved_layout`, `belongs_here`, `clear_unwanted` and the
+slot-filling loop as top-level functions taking a `stats` argument. Low risk
+given mutation coverage; worth doing before anyone else contributes.
+**Decision:**
+
+### D2. Data block is 7,500 committed lines that change wholesale per patch — `open`
+Fine for now. If diffs get painful, CI could regenerate instead of requiring
+it committed. The current "must match" check is right until then.
+**Decision:**
+
+### D3. `mutate.py` is slow and edits `src/engine.lua` in place — `open`
+Write the mutant to a temp file and point `build.py` at it: safe to Ctrl-C,
+parallelisable. ~3 minutes today.
+**Decision:**
+
+### D4. Things the harness can't check — `open`
+That `get_building_level_upgrades`, `template_key` and the UI layout names
+behave as modelled, and that nothing crashes. A short after-patch smoke
+checklist in the README: load a save, End Turn, check the trace for
+`Refusing key`, `FAILED`, `popup failed`.
+**Decision:**
+
+---
+
+## E. README
+
+### E1. Honesty pass on the lessons — depends on B1
+### E2. Fix the log location — depends on B4
+### E3. Windows status — depends on B5
+### E4. "Known limitations" section — `open`
+Minors cap at level 3 (so one-settlement minor provinces are "grown" at 3);
+multi-path buildings left alone; single-player only; one province protected;
+Aislinn's colonies upgrades-only.
+**Decision:**
+
+---
+
+## Suggested order
+
+A1 → B2 → B1/E1 → A2 → B4/E2 → B5/E3 → C1 → D1 → the rest.

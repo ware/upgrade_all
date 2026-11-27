@@ -102,12 +102,12 @@ end)
 ---------------------------------------------------------------------------
 test("Capital layout in order: Homestead, Plaza, Gardens, Walls, Craftsman, Tunnels, Embassy, Dragon's Lair", function()
     new_world({
-        mkregion("cap", "p", { capital = true, gdp = 900, main = GROWING_MAJOR,
+        mkregion("cap", "p", { capital = true, gdp = 900, main = "wh2_main_hef_settlement_major_4",  -- the Lair needs level 4
             buildings = { false, false, false, false, false, false, false, false } }),
         mkregion("mn", "p", { main = GROWING_MINOR, buildings = {} }),
     })
     load(); end_turn()
-    eq(joined("cap"), "wh2_main_hef_settlement_major_4,wh2_main_hef_farm_1,wh2_main_hef_order_1,wh2_main_hef_court_1,"
+    eq(joined("cap"), "wh2_main_hef_settlement_major_5,wh2_main_hef_farm_1,wh2_main_hef_order_1,wh2_main_hef_court_1,"
         .. "wh2_main_hef_defence_major_1,wh2_main_hef_industry_1,wh2_main_foreign_slot_discovery_hef_1,"
         .. "wh2_main_hef_embassy_1,wh2_main_hef_dragons_1")
 end)
@@ -260,6 +260,52 @@ test("A building the game refuses costs nothing and is tried again next turn", f
     W.queued = {}
     end_turn()
     eq(joined("mn"), "wh2_main_hef_farm_1", "turn 2")
+end)
+
+-- Turn 237 of the Dark Elf campaign: 87 refusals in the final pass, the same
+-- orders asked again in every pass, and only the main-building ones named.
+test("A refused order is asked once per turn, named in the trace, and counted once in the summary", function()
+    new_world({
+        mkregion("poor", "unrest", { po = -10, main = MAXED_MINOR, buildings = { false } }),
+        mkregion("rich", "calm", { gdp = 500, main = MAXED_MINOR,
+            buildings = { "wh2_main_hef_barracks_1", "wh2_main_hef_farm_1", "wh2_main_hef_industry_1" } }),
+    }, 20000)                          -- plenty of gold, so pass 1 buys things and pass 2 runs
+    W.invalid["wh2_main_hef_farm_2"] = true
+    load(); end_turn()
+    eq(H.attempts_for("wh2_main_hef_farm_2"), 1, "asked the game again on the next pass")
+    eq(H.count(W.trace_file, "rich#2: wh2_main_hef_farm_2 refused by the game"), 1, "trace")
+    assert_in(H.summary(), "Refused by the game (growth, tech...): 1")
+    assert_in(W.trace_file, "pass 2", "the second pass didn't run, so nothing was tested")
+end)
+
+test("A building the settlement is too small for is never asked for: the data's level requirement decides", function()
+    -- A level-1 minor: Homestead and Craftsman need level 1; the Watchtower and
+    -- City Tunnels need level 2 (building_levels).
+    new_world({ mkregion("mn", "p", { main = "wh2_main_hef_settlement_minor_1", buildings = { false, false, false, false } }) })
+    W.upgrades = { wh2_main_hef_settlement_minor_1 = {} }      -- keep it at level 1 this turn
+    W.invalid["wh2_main_hef_settlement_minor_2"] = true
+    load(); end_turn()
+    eq(joined("mn"), "wh2_main_hef_farm_1,wh2_main_hef_industry_1")
+    eq(H.attempts_for("wh2_main_hef_defence_minor_1"), 0, "asked the game for the Watchtower")
+    eq(H.attempts_for("wh2_main_foreign_slot_discovery_hef_1"), 0, "asked the game for City Tunnels")
+    assert_in(H.summary(), "Waiting on settlement level: 2")
+    assert_in(W.trace_file, "wh2_main_hef_defence_minor_1 needs main settlement level 2 (this one is level 1)")
+end)
+
+test("Upgrades the settlement is too small for are not asked for either", function()
+    -- Homestead II needs a level-2 settlement; this minor is level 1.
+    new_world({ mkregion("mn", "p", { main = "wh2_main_hef_settlement_minor_1", buildings = { "wh2_main_hef_farm_1" } }) })
+    W.upgrades = { wh2_main_hef_settlement_minor_1 = {} }
+    W.invalid["wh2_main_hef_settlement_minor_2"] = true
+    load(); end_turn()
+    eq(H.attempts_for("wh2_main_hef_farm_2"), 0)
+    assert_in(H.summary(), "Waiting on settlement level: 1")
+end)
+
+test("Unknown settlement levels never block: a special main building with no data still gets its layout", function()
+    new_world({ mkregion("odd", "p", { main = "wh3_main_special_settlement_nowhere_3", buildings = { false } }) })
+    load(); end_turn()
+    eq(joined("odd"), "wh2_main_hef_farm_1")
 end)
 
 ---------------------------------------------------------------------------
