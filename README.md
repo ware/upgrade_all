@@ -66,15 +66,32 @@ and the mod leaves it alone.
 
 1. Get `upgrade_all.pack`: download the `upgrade_all` artifact from the latest
    CI run, or build it yourself (`python3 build.py --pack`, see below).
-2. Copy it into the game's `data` folder (on a Mac,
-   `~/Library/Application Support/Steam/steamapps/common/Total War WARHAMMER III/TotalWarhammer3Data/data/`).
-   It is a *movie*-type pack, so it loads without being enabled in the
-   launcher; this works around the macOS launcher not managing local packs.
+2. Copy it into the game's `data` folder:
+   - macOS: `~/Library/Application Support/Steam/steamapps/common/Total War WARHAMMER III/TotalWarhammer3Data/data/`
+   - Windows: `C:\Program Files (x86)\Steam\steamapps\common\Total War WARHAMMER III\data\`
+   - Linux (Proton): `~/.steam/steam/steamapps/common/Total War WARHAMMER III/data/`
 3. Start or load a single-player campaign as any High Elf or Dark Elf faction.
-   With other cultures, or in multiplayer, the mod stays inactive.
+   With other cultures, or in multiplayer, the mod stays inactive. There is
+   nothing to enable in the launcher (see below).
 
 If you'd rather use RPFM's GUI, the artifact also includes
 `script/campaign/mod/upgrade_all.lua`; add it to a pack at exactly that path.
+
+### Why the pack is "movie" type
+
+Total War packs carry a type. Ordinary mods are `mod` packs: the launcher's
+mod manager lists them and you tick the ones to load. On macOS the launcher
+only manages Steam Workshop subscriptions; a `mod` pack dropped into the
+`data` folder never appears in its list and is never loaded. `movie` packs
+are different: the game loads every `movie` pack it finds in `data` at
+startup, with no launcher involvement, because that is how the base game
+ships its own cinematics. Building `upgrade_all.pack` as a `movie` pack is
+therefore the only way to get a locally built mod running on the Mac.
+
+The trade-offs: the pack cannot be turned off from the launcher (delete or
+move the file to disable it), and a `movie` pack is the wrong type for the
+Steam Workshop. If this mod is ever published, the published build should be
+a `mod` pack; `PACK_TYPE` in `build.py` is the one place to change.
 
 Settings live in the `CONFIG` table at the top of `src/engine.lua`; change
 them, rebuild, and repack. The ones you're most likely to touch:
@@ -140,11 +157,19 @@ python3 build.py --install  # ... and copy it into the game's data folder
 ```
 
 `--pack` uses [rpfm_cli](https://github.com/Frodo45127/rpfm), the command-line
-half of RPFM: `cargo install rpfm_cli`. `--install` looks for the game's data
-folder in the usual Steam location on macOS and Windows; set `WH3_DATA_DIR` if
-yours is elsewhere. The game reads packs at launch, so restart it after
-installing. CI uploads both the pack and the script as the `upgrade_all`
-artifact.
+half of RPFM: `cargo install rpfm_cli`. Options:
+
+| Option | What it does |
+|---|---|
+| `--output PATH` | Write the pack somewhere other than `dist/upgrade_all.pack` |
+| `--data-dir PATH` | The game's `data` folder for `--install` |
+| `WH3_DATA_DIR` (env) | Same as `--data-dir`, for setting once |
+
+Without either, `--install` tries the usual Steam folders for the platform
+it's running on (macOS, Windows, Linux/Proton; see `GAME_DATA_DIRS` in
+`build.py`) and says so if none exists. The game reads packs at launch, so
+restart it after installing. CI uploads both the pack and the script as the
+`upgrade_all` artifact.
 
 Edit `src/engine.lua`, never the built file: `run_tests.py` fails if the built
 script doesn't match `tools/data_block.lua` + `src/engine.lua`.
